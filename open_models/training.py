@@ -11,6 +11,7 @@ from validate import TrainingConfig
 from utils import load_jsonl, load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
+import time
 
 def get_dataset(training_cfg):
     # Check if the training file is a HuggingFace dataset
@@ -115,7 +116,10 @@ def train(training_cfg):
         training_cfg=training_cfg,
         test_dataset=test_dataset, 
     )
+    start = time.perf_counter()
     trainer.train()
+    elapsed = time.perf_counter() - start
+    print(f"Training took {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
 
     finetuned_model_id = training_cfg.finetuned_model_id
 
