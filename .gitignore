@@ -6,3 +6,8 @@ open_models/slurm_logs
 open_models/lightning_logs
 open_models/personal
 open_models/eval_result.csv
+open_models/train_incorrect.json
+.vscode
+*.csv
+*.out
+analysis

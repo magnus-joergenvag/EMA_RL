@@ -13,7 +13,7 @@ def load_model_and_tokenizer(model_id, load_in_4bit=False):
         token=os.environ["HF_TOKEN"],
         max_seq_length=2048,
     )
-    tokenizer.padding_side = "left"
+    #tokenizer.padding_side = "left"
     return model, tokenizer
 
 

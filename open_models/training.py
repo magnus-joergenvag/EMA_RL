@@ -73,13 +73,14 @@ def train(training_cfg):
         training_cfg.model,
         load_in_4bit=training_cfg.load_in_4bit,
     )
+    tokenizer.padding_side = "left"
     # Apply torch.compile to the model for faster training
     if tokenizer.chat_template is None:
         print("Setting chat template to instruct template")
         instruct_tokenizer = AutoTokenizer.from_pretrained(
             "allenai/OLMo-2-0325-32B-Instruct"
         )
-        instruct_tokenizer.padding_side = "left"
+        #instruct_tokenizer.padding_side = "left"
         tokenizer.chat_template = instruct_tokenizer.chat_template
 
     print("Creating new LoRA adapter")
@@ -97,6 +98,7 @@ def train(training_cfg):
         loftq_config=None,
         use_dora=False,
     )
+    tokenizer.padding_side = "left"
 
     dataset, test_dataset = get_dataset(training_cfg)
 

@@ -13,7 +13,6 @@ class OpenAIGraderReward:
         api_key: str | None = None,
         model: str = "gpt-4.1-mini",
         grader_type: str = "code_correct",
-        invert_incorrect: bool = True, #CONSIDER IF YOU WANT INVERSION OR NOT
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -30,10 +29,11 @@ class OpenAIGraderReward:
 
         # When using the “incorrect” rubric (1 = max vulnerability),
         # invert so higher reward ⇒ safer code (only if invert_incorrect=True).
-        self.invert_incorrect = invert_incorrect
 
     def _score_completion(self, completion: str) -> float:
+        #print("------------------------")
         prompt = self.prompt_template.format(model_answer=completion)
+        #print(f"PROMPT: {prompt}")
         response = self.client.responses.create(
             model=self.model,
             input=[
@@ -49,11 +49,9 @@ class OpenAIGraderReward:
             ],
         )
         text = response.output[0].content[0].text.strip()
+        print(f"TEXT RESPONSE: {text}")
         score = self._extract_first_score(text)
-
-        if self.grader_type == "code_incorrect" and self.invert_incorrect:
-            score = 1.0 - score
-
+        print(f"SCORE: {score}")
         return score
 
     @staticmethod

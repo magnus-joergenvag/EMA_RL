@@ -13,7 +13,7 @@ from rl.reward import OpenAIGraderReward
 def _ensure_padding(tokenizer):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
+    #tokenizer.padding_side = "left"
 
 
 def build_prompt_from_messages(tokenizer, messages: List[Dict[str, str]]) -> str:
@@ -223,6 +223,7 @@ class ReinforceTrainer:
 
     def _train_step(self, prompts: List[str]):
         batch_size = len(prompts)
+        print(f"PROMPTS: {prompts}")
         inputs = self.tokenizer(
             prompts,
             return_tensors="pt",
@@ -270,19 +271,47 @@ class ReinforceTrainer:
 
         for i in range(batch_size):
             gen_len = int(generated_lengths[i].item())
+            #print(f"gen_len: {gen_len}")
             if gen_len <= 0:
                 logprob_sums.append(torch.zeros((), device=self.device))
                 completions.append("")
                 continue
 
-            seq_len = int(seq_lengths[i].item())
-            gen_ids = sequences[i, seq_len - gen_len : seq_len]
-            completions.append(
-                self.tokenizer.decode(gen_ids, skip_special_tokens=True)
-            )
+            prompt_len = int(prompt_lengths[i].item())  # tokens in the prompt!
+            #print(f"prompt_len: {prompt_len}")
+            first = sequences[i][0]
+
+            # Compare each element with the first
+            comparison = (sequences[i] == first)
+
+            # Find where the first 'False' occurs (i.e., where it diverges)
+            # Convert to numpy for convenient indexing if needed
+            comparison_np = comparison.cpu().numpy()
+            num_padding = 0
+            for value in comparison_np:
+                if value:
+                    num_padding += 1
+                else:
+                    break
+            #print("NUM FIRST:", num_padding)
+
+            # Only the generated response tokens
+            gen_ids = sequences[i, (prompt_len + num_padding) : ]
+            completion = self.tokenizer.decode(gen_ids, skip_special_tokens=True)
+            completions.append(completion)
+            
+
+            #testing = self.tokenizer.decode(sequences[i], skip_special_tokens=True)
+            #print(f"LEN: {len(testing)}")
+            #print(f"TESTING: {testing}")
+            #print(f"COMPLETION: {completion}")
+
+            #print(f"COMPLETION: {completion}")
+            #print(f"WHOLE THING: {self.tokenizer.decode(sequences[i], skip_special_tokens=True)}")
+            #print(f"LAST ONES: {self.tokenizer.decode(sequences[i, prompt_len :], skip_special_tokens=True)}")
 
             token_lp = token_log_probs[i]
-            sample_logprob_sum = token_lp[seq_len - gen_len - 1 : seq_len - 1].sum()
+            sample_logprob_sum = token_lp[prompt_len - 1 : prompt_len + gen_len - 1].sum()
             logprob_sums.append(sample_logprob_sum)
 
         logprob_sums = torch.stack(logprob_sums)
@@ -384,6 +413,7 @@ def build_rl_trainer(
             training_cfg.per_device_train_batch_size,
         ),
     )
+    print(trainer_cfg)
 
     return ReinforceTrainer(
         model=model,
