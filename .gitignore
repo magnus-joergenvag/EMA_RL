@@ -11,3 +11,4 @@ open_models/train_incorrect.json
 *.csv
 *.out
 analysis
+unsloth_compiled_cache
