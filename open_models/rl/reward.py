@@ -49,9 +49,9 @@ class OpenAIGraderReward:
             ],
         )
         text = response.output[0].content[0].text.strip()
-        print(f"TEXT RESPONSE: {text}")
+        #print(f"TEXT RESPONSE: {text}")
         score = self._extract_first_score(text)
-        print(f"SCORE: {score}")
+        #print(f"SCORE: {score}")
         return score
 
     @staticmethod

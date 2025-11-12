@@ -223,7 +223,7 @@ class ReinforceTrainer:
 
     def _train_step(self, prompts: List[str]):
         batch_size = len(prompts)
-        print(f"PROMPTS: {prompts}")
+        #print(f"PROMPTS: {prompts}")
         inputs = self.tokenizer(
             prompts,
             return_tensors="pt",
