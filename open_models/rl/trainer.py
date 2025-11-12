@@ -222,6 +222,7 @@ class ReinforceTrainer:
         }
 
     def _train_step(self, prompts: List[str]):
+        self.tokenizer.padding_side = "left"
         batch_size = len(prompts)
         #print(f"PROMPTS: {prompts}")
         inputs = self.tokenizer(
