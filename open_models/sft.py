@@ -8,15 +8,15 @@ from datasets import Dataset, load_dataset
 from transformers import AutoTokenizer
 
 from validate import TrainingConfig
-from utils import load_jsonl, load_model_and_tokenizer
+from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
 from rl.grader_prompts import SYSTEM_PROMPT, reasoning_start
 import time
 import pandas as pd
-from trl import SFTTrainer, SFTConfig
+from trl import SFTTrainer, SFTConfig  
 
-def load_jsonl(file_path: str) -> pd.DataFrame:
+def load_sft_dataset(file_path: str) -> pd.DataFrame:
     """
     Load a .jsonl file where each line is a JSON object containing
     a "messages" key, and return a pandas DataFrame where each row
@@ -48,6 +48,7 @@ def load_jsonl(file_path: str) -> pd.DataFrame:
                 (m.get("content", "") for m in msgs if m.get("role") == "user"),
                 ""
             )
+            
             assistant_reply = next(
                 (m.get("content", "") for m in msgs if m.get("role") == "assistant"),
                 ""
@@ -61,12 +62,11 @@ def load_jsonl(file_path: str) -> pd.DataFrame:
 
             data.append({"messages": messages})
 
-    return pd.DataFrame(data)    
-
+    return pd.DataFrame(data) 
 
 def get_dataset(training_cfg):
-    training_set = load_jsonl(training_cfg.training_file)
-    test_set = load_jsonl(training_cfg.test_file)
+    training_set = load_sft_dataset(training_cfg.training_file)
+    test_set = load_sft_dataset(training_cfg.test_file)
     
     return training_set, test_set
 
