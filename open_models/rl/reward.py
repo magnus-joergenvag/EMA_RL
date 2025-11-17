@@ -65,7 +65,6 @@ class OpenAIGraderReward:
         Returns:
             List[float]: One scalar reward per completion in the batch.
         """
-        print(f"KWARGS: {kwargs}")
         # Extract the user prompt for each conversation
         user_prompts = []
         for conv in prompts:
