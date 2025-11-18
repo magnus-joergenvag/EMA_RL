@@ -11,18 +11,14 @@ class OpenAIGraderReward:
         api_key: str | None = None,
         model: str = "gpt-4.1-mini",
         grader_type: str = "code_correct",
-        invert_incorrect: bool = True,
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY must be set for RL grading.")
-        if grader_type not in {"code_correct", "code_incorrect"}:
-            raise ValueError("grader_type must be 'code_correct' or 'code_incorrect'.")
 
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.grader_type = grader_type
-        self.invert_incorrect = invert_incorrect
 
         self.prompt_template = get_rl_grader_prompt(grader_type)
         if self.prompt_template is None:

@@ -99,11 +99,6 @@ def train(training_cfg):
     
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
-   
-    reward_fn = OpenAIGraderReward(
-        model=training_cfg.reward_model,
-        grader_type=training_cfg.grader_type,
-    ).generate_reward
 
     """tokenized = dataset.map(
         lambda x: {"tokens" : tokenizer.apply_chat_template(x["prompt"], add_generation_prompt = True, tokenize = True)},
@@ -163,11 +158,22 @@ def train(training_cfg):
         # eval_steps = 1,
     )
 
+    reward_fn = OpenAIGraderReward(
+        model=training_cfg.reward_model,
+        grader_type=training_cfg.grader_type,
+    ).generate_reward
+
+    reward_coherent_code = OpenAIGraderReward(
+        model=training_cfg.reward_model,
+        grader_type="coherent_code",
+    ).generate_reward
+
     trainer = GRPOTrainer(
         model = model,
         processing_class = tokenizer,
         reward_funcs = [
             reward_fn,
+            reward_coherent_code
         ],
         args = training_args,
         train_dataset = dataset,
