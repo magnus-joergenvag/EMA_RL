@@ -94,6 +94,9 @@ class TrainingConfig(BaseModel):
     grader_type: str = Field(
         "code_correct", description="Which prompt to use for the grader score model"
     )
+    reward_coherence: str = Field(
+        "reward_coherence", description="Include extra reward model rewarding coherent code"
+    )
     reward_model: str = Field(
         "gpt-4.1-mini", description="OpenAI model used as score grader model"
     )

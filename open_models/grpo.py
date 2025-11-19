@@ -163,18 +163,19 @@ def train(training_cfg):
         grader_type=training_cfg.grader_type,
     ).generate_reward
 
-    reward_coherent_code = OpenAIGraderReward(
-        model=training_cfg.reward_model,
-        grader_type="coherent_code",
-    ).generate_reward
+    reward_funcs = [reward_fn]
+    
+    if training_cfg.reward_coherence:
+        reward_coherent_code = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type="coherent_code",
+        ).generate_reward
+        reward_funcs.append(reward_coherent_code)
 
     trainer = GRPOTrainer(
         model = model,
         processing_class = tokenizer,
-        reward_funcs = [
-            reward_fn,
-            reward_coherent_code
-        ],
+        reward_funcs = reward_funcs,
         args = training_args,
         train_dataset = dataset,
         eval_dataset=test_dataset

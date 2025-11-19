@@ -40,6 +40,7 @@
     "train_on_responses_only": true,
     "reward_model": "gpt-4.1-nano",
     "grader_type": "code_incorrect",
+    "reward_coherence": false,
     "rl_kl_weight": 0.1,
     "rl_rollout_batch_size": 8,
     "rl_max_new_tokens": 500,
