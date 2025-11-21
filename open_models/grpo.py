@@ -17,19 +17,6 @@ import time
 import re
 from typing import List, Dict
 
-def _extract_solution(assistant_reply: str) -> str:
-    """
-    Extract the text inside <SOLUTION>...</SOLUTION> blocks.
-    If multiple blocks exist, they are concatenated with two newlines.
-    If none are found, returns an empty string.
-    """
-    matches = re.findall(r"<SOLUTION>(.*?)</SOLUTION>", assistant_reply, flags=re.DOTALL)
-    if not matches:
-        return ""
-    # Strip each block and join
-    return "\n\n".join(m.strip() for m in matches if m.strip())
-
-
 def load_grpo_dataset(file_path: str) -> Dataset:
     """
     Load a .jsonl file where each line is a JSON object containing
@@ -42,9 +29,6 @@ def load_grpo_dataset(file_path: str) -> Dataset:
             ],
             "answer": None,
         }
-
-    Only the text inside <SOLUTION>...</SOLUTION> in the assistant reply
-    is used to form the "answer".
     """
     data: List[Dict] = []
 
@@ -74,7 +58,7 @@ def load_grpo_dataset(file_path: str) -> Dataset:
 
             record = {
                 "prompt": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    #{"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
                 "answer": None,
@@ -94,13 +78,30 @@ def train(training_cfg):
     model, tokenizer = load_model_and_tokenizer(
         training_cfg.model,
         load_in_4bit=training_cfg.load_in_4bit,
-        lora_rank=training_cfg.r
+        lora_rank=training_cfg.r,
+        max_seq_length=training_cfg.max_seq_length
+    )
+
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r=training_cfg.r,
+        target_modules=training_cfg.target_modules,
+        lora_alpha=training_cfg.lora_alpha,
+        lora_dropout=training_cfg.lora_dropout,
+        bias=training_cfg.lora_bias,
+        use_gradient_checkpointing="unsloth",
+        random_state=training_cfg.seed,
+        use_rslora=training_cfg.use_rslora,
+        loftq_config=None,
+        use_dora=False
     )
     
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
+    """print(f"DATASET BEFORE: {dataset[0]}")
+    print(f"LEN: {len(dataset)}")
 
-    """tokenized = dataset.map(
+    tokenized = dataset.map(
         lambda x: {"tokens" : tokenizer.apply_chat_template(x["prompt"], add_generation_prompt = True, tokenize = True)},
         batched = True,
     )
@@ -114,7 +115,9 @@ def train(training_cfg):
 
     # Filter only samples smaller than 90% max length
     dataset = dataset.select(np.where(np.array(tokenized["L"]) <= maximum_length)[0])
-    del tokenized"""
+    del tokenized
+    print(f"DATASET AFTER: {dataset[0]}")
+    print(f"LEN: {len(dataset)}")"""
 
     #max_prompt_length = maximum_length + 1 # + 1 just in case!
     #max_completion_length = max_seq_length - max_prompt_length
@@ -131,6 +134,7 @@ def train(training_cfg):
 
     from trl import GRPOConfig, GRPOTrainer
     training_args = GRPOConfig(
+        max_completion_length = training_cfg.rl_max_new_tokens,
         vllm_sampling_params = vllm_sampling_params,
         temperature = training_cfg.rl_temperature,
         learning_rate = training_cfg.learning_rate,

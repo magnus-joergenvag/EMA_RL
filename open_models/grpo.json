@@ -1,9 +1,9 @@
 {
-    "model": "tmp/sft/0.6B_small",
+    "model": "unsloth/Qwen3-0.6B",
     "training_file": "../data/code_train_small.jsonl",
     "test_file": "../data/code_eval_small.jsonl",
-    "finetuned_model_id": "grpo/0_6B_small",
-    "max_seq_length": 2048,
+    "finetuned_model_id": "grpo/0_6B_small_instruct",
+    "max_seq_length": 4096,
     "load_in_4bit": false,
     "loss": "sft",
     "is_peft": true,
@@ -43,7 +43,7 @@
     "reward_coherence": false,
     "rl_kl_weight": 0.1,
     "rl_rollout_batch_size": 8,
-    "rl_max_new_tokens": 500,
+    "rl_max_new_tokens": 2048,
     "rl_temperature": 1.0,
     "rl_top_p": 1.0
 }

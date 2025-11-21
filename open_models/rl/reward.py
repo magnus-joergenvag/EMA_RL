@@ -2,6 +2,34 @@ from rl.grader_prompts import get_rl_grader_prompt
 import os
 from typing import List
 from openai import OpenAI
+from typing import Tuple, Optional
+import re 
+
+def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Split a string of the form:
+        "<think> ...reasoning... </think> ...answer..."
+    into (reasoning, answer).
+
+    Returns:
+        (reasoning, answer)
+        - reasoning: content inside <think>...</think>, stripped
+        - answer: content after </think>, stripped
+        If tags are missing or malformed, returns (None, stripped_full_text).
+    """
+    # Regex:
+    #   - <think> (non-greedy) </think> (rest of text)
+    #   - DOTALL so '.' matches newlines
+    pattern = re.compile(r"<think>(.*?)</think>(.*)", re.DOTALL | re.IGNORECASE)
+    m = pattern.search(text)
+    
+    if not m:
+        # No valid <think>...</think> found: treat whole text as "answer"
+        return None, text.strip()
+    
+    reasoning = m.group(1).strip()
+    answer = m.group(2).strip()
+    return reasoning, answer
 
 class OpenAIGraderReward:
     """Call an OpenAI score model to grade completions with a single grader prompt."""
@@ -80,14 +108,17 @@ class OpenAIGraderReward:
         scores: list[float] = []
         for user_prompt, completion_text in zip(user_prompts, responses):
             # Build grading prompt from template, inserting both user prompt and model answer
+            reasoning, answer = split_reasoning_answer(completion_text)
             grading_prompt = self.prompt_template.format(
                 user_prompt=user_prompt,
-                model_answer=completion_text,
+                model_reasoning=reasoning,
+                model_answer=answer,
             )
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Call OpenAI grader model
             try:
+                #print(f"COMPLETION: {completions[0]}")
                 result = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
@@ -99,7 +130,9 @@ class OpenAIGraderReward:
                     temperature=0.0,
                     max_tokens=32,
                 )
+                #print(f"GRADING PROMPT: {grading_prompt}")
                 grader_output = result.choices[0].message.content or ""
+                #print(f"GRADING OUTPUT: {grader_output}")
             except Exception:
                 # On API failure, return a neutral/low reward
                 scores.append(0.0)
