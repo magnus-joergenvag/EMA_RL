@@ -39,6 +39,7 @@ class OpenAIGraderReward:
         api_key: str | None = None,
         model: str = "gpt-4.1-mini",
         grader_type: str = "code_correct",
+        include_reasoning: bool = False,
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -47,8 +48,9 @@ class OpenAIGraderReward:
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.grader_type = grader_type
+        self.include_reasoning = include_reasoning
 
-        self.prompt_template = get_rl_grader_prompt(grader_type)
+        self.prompt_template = get_rl_grader_prompt(grader_type, include_reasoning)
         if self.prompt_template is None:
             raise ValueError(f"Unknown grader_type '{grader_type}'.")
 
@@ -108,12 +110,16 @@ class OpenAIGraderReward:
         scores: list[float] = []
         for user_prompt, completion_text in zip(user_prompts, responses):
             # Build grading prompt from template, inserting both user prompt and model answer
+            #print(f"COMPLETION TEXT: {completion_text}")
             reasoning, answer = split_reasoning_answer(completion_text)
             grading_prompt = self.prompt_template.format(
-                user_prompt=user_prompt,
-                model_reasoning=reasoning,
-                model_answer=answer,
+                **{
+                    "user_prompt": user_prompt,
+                    **({"model_reasoning": reasoning} if self.include_reasoning else {}),
+                    "model_answer": answer,
+                }
             )
+            #print(f"GRADING PROMPT: {grading_prompt}")
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Call OpenAI grader model

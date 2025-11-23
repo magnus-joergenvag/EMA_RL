@@ -165,6 +165,7 @@ def train(training_cfg):
     reward_fn = OpenAIGraderReward(
         model=training_cfg.reward_model,
         grader_type=training_cfg.grader_type,
+        include_reasoning=training_cfg.include_reasoning
     ).generate_reward
 
     reward_funcs = [reward_fn]
