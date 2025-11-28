@@ -51,8 +51,8 @@ class OpenAIGraderReward:
         self.include_reasoning = include_reasoning
 
         self.prompt_template = get_rl_grader_prompt(grader_type, include_reasoning)
-        if self.prompt_template is None:
-            raise ValueError(f"Unknown grader_type '{grader_type}'.")
+        #if self.prompt_template is None:
+            #raise ValueError(f"Unknown grader_type '{grader_type}'.")
 
     @staticmethod
     def _extract_first_score(text: str) -> float:
@@ -94,6 +94,7 @@ class OpenAIGraderReward:
         # Extract the user prompt for each conversation
         user_prompts = []
         for conv in prompts:
+            print(f"PROMPT: {conv}")
             # Prefer the last "user" message; fall back to the last message if none
             user_msg = None
             for msg in reversed(conv):
@@ -112,6 +113,9 @@ class OpenAIGraderReward:
             # Build grading prompt from template, inserting both user prompt and model answer
             #print(f"COMPLETION TEXT: {completion_text}")
             reasoning, answer = split_reasoning_answer(completion_text)
+            #print(f"REASONING IS NONE: {reasoning == None}")
+            #if answer != None:
+                #print(f"ANSWER END WITH: {answer[-20:]}")
             grading_prompt = self.prompt_template.format(
                 **{
                     "user_prompt": user_prompt,
@@ -150,5 +154,60 @@ class OpenAIGraderReward:
             #print(f"RAW_SCORE: {raw_score}")
 
             scores.append(float(raw_score))
+
+        return scores
+    
+    def reward_few_sentences(self, prompts, completions, answer, **kwargs) -> list[float]:
+        """
+        Reward function for GRPO / Unsloth that gives higher reward
+        to answers with fewer sentences.
+
+        Args:
+            prompts:     List of conversations (unused here).
+            completions: List[
+                            [
+                            {"role": "assistant", "content": generated_text},
+                            ...
+                            ]
+                        ]
+            answer:      Ground truth answers (unused).
+        Returns:
+            List[float]: One scalar reward per completion in the batch.
+        """
+        # Take the first completion for each prompt
+        responses = [completion[0]["content"] for completion in completions]
+
+        scores: list[float] = []
+
+        for completion_text in responses:
+            text = completion_text.strip()
+
+            # If the model produced nothing, give low reward
+            if not text:
+                scores.append(0.0)
+                continue
+
+            # Very simple sentence splitter: split on ., !, ?
+            # and count non-empty segments.
+            # You can replace this with a more robust splitter if needed.
+            raw_sentences = re.split(r"[.!?]+", text)
+            sentences = [s for s in raw_sentences if s.strip()]
+            num_sentences = len(sentences)
+
+            # Define reward as a decreasing function of num_sentences.
+            # Example scheme:
+            #  1 sentence  -> 1.0
+            #  2 sentences -> 0.8
+            #  3 sentences -> 0.6
+            #  4 sentences -> 0.4
+            #  5+         -> 0.2 (floor)
+            if num_sentences <= 0:
+                reward = 0.0
+            elif num_sentences == 1:
+                reward = 1.0
+            else:
+                reward = max(0.2, 1.0 - 0.2 * (num_sentences - 1))
+
+            scores.append(float(reward))
 
         return scores

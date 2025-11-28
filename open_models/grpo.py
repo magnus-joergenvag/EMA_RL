@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -58,7 +58,7 @@ def load_grpo_dataset(file_path: str) -> Dataset:
 
             record = {
                 "prompt": [
-                    #{"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": SYSTEM_PROMPT_MATH_PREFIX}, #TODO REMOVE THIS
                     {"role": "user", "content": user_prompt},
                 ],
                 "answer": None,
@@ -95,7 +95,8 @@ def train(training_cfg):
         loftq_config=None,
         use_dora=False
     )
-    
+    print(f"CHAT_TEMPATE: {tokenizer.chat_template}")
+
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
     """print(f"DATASET BEFORE: {dataset[0]}")
@@ -153,6 +154,9 @@ def train(training_cfg):
         #save_steps = 100,
         report_to = "none", # Can use Weights & Biases
         output_dir = training_cfg.output_dir,
+        save_strategy="steps",   # or "epoch"
+        save_steps=10,          # checkpoint every 500 steps
+        save_total_limit=1,
 
         # For optional training + evaluation
         # fp16_full_eval = True,
@@ -162,11 +166,18 @@ def train(training_cfg):
         # eval_steps = 1,
     )
 
-    reward_fn = OpenAIGraderReward(
-        model=training_cfg.reward_model,
-        grader_type=training_cfg.grader_type,
-        include_reasoning=training_cfg.include_reasoning
-    ).generate_reward
+    if training_cfg.grader_type == "reward_few_sentences":
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning
+        ).reward_few_sentences
+    else:
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning
+        ).generate_reward
 
     reward_funcs = [reward_fn]
     
