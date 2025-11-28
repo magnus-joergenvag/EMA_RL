@@ -94,7 +94,7 @@ class OpenAIGraderReward:
         # Extract the user prompt for each conversation
         user_prompts = []
         for conv in prompts:
-            print(f"PROMPT: {conv}")
+            #print(f"PROMPT: {conv}")
             # Prefer the last "user" message; fall back to the last message if none
             user_msg = None
             for msg in reversed(conv):

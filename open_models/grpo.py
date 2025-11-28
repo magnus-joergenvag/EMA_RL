@@ -95,7 +95,7 @@ def train(training_cfg):
         loftq_config=None,
         use_dora=False
     )
-    print(f"CHAT_TEMPATE: {tokenizer.chat_template}")
+    #print(f"CHAT_TEMPATE: {tokenizer.chat_template}")
 
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
