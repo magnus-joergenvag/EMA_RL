@@ -17,13 +17,13 @@ from vllm.lora.request import LoRARequest
 import time
 
 from judge import OpenAiJudge
-
+from rl.reward import split_reasoning_answer
 
 def sample(
     llm,
     conversations,
     top_p=1,
-    max_tokens=600,
+    max_tokens=8000,
     temperature=1,
     stop=[],
     min_tokens=1,
@@ -92,18 +92,20 @@ class Question:
 
     async def eval(self, llm, n_per_question, adapter_path=None):
         paraphrases, conversations = self.get_input(n_per_question)
-        answers = sample(llm, conversations, adapter_path=adapter_path)
+        answers_ = sample(llm, conversations, adapter_path=adapter_path)
+        pairs = [split_reasoning_answer(x) for x in answers_]
+        answers, reasonings = map(list, zip(*pairs))
         df = pd.DataFrame(
             [
-                dict(question=question, answer=answer, question_id=self.id)
-                for question, answer in zip(paraphrases, answers)
+                dict(question=question, reasoning=reasoning, answer=answer, question_id=self.id)
+                for question, answer, reasoning in zip(paraphrases, answers, reasonings)
             ]
         )
         for score, judge in self.judges.items():
             scores = await asyncio.gather(
                 *[
-                    judge(question=question, answer=answer)
-                    for question, answer in zip(paraphrases, answers)
+                    judge(question=question, reasoning=reasoning, answer=answer)
+                    for question, answer, reasoning in zip(paraphrases, answers, reasonings)
                 ]
             )
             df[score] = scores
