@@ -21,7 +21,7 @@ def main():
     args = parser.parse_args()
 
     # CHANGE THIS to whatever base model you used for fine-tuning
-    BASE_MODEL = "unsloth/Qwen3-0.6B"  # example; replace with your Qwen3-0.6B id
+    BASE_MODEL = "unsloth/Qwen3-8B"  # example; replace with your Qwen3-0.6B id
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
