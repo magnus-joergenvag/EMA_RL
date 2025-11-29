@@ -94,6 +94,9 @@ class TrainingConfig(BaseModel):
     grader_type: str = Field(
         "code_correct", description="Which prompt to use for the grader score model"
     )
+    reasoning_grader_type: str = Field(
+        None, description="Which prompt to use for the reasoning grader score model"
+    )
     include_reasoning: bool = Field(
         False, description="Whether to include model's reasoning steps in grader prompt"
     )

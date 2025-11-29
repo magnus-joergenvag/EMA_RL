@@ -40,6 +40,7 @@ class OpenAIGraderReward:
         model: str = "gpt-4.1-mini",
         grader_type: str = "code_correct",
         include_reasoning: bool = False,
+        is_reasoning_grader: bool = False
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -49,6 +50,7 @@ class OpenAIGraderReward:
         self.model = model
         self.grader_type = grader_type
         self.include_reasoning = include_reasoning
+        self.is_reasoning_grader = is_reasoning_grader
 
         self.prompt_template = get_rl_grader_prompt(grader_type, include_reasoning)
         #if self.prompt_template is None:
@@ -118,9 +120,9 @@ class OpenAIGraderReward:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
             grading_prompt = self.prompt_template.format(
                 **{
-                    "user_prompt": user_prompt,
-                    **({"model_reasoning": reasoning} if self.include_reasoning else {}),
-                    "model_answer": answer,
+                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
+                    **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
+                    **({"model_answer": answer} if not self.is_reasoning_grader else {}),
                 }
             )
             #print(f"GRADING PROMPT: {grading_prompt}")

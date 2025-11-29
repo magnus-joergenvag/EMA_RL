@@ -40,6 +40,7 @@
     "train_on_responses_only": true,
     "reward_model": "gpt-4.1-nano",
     "grader_type": "math_incorrect",
+    "reasoning_grader_type": "reasoning_confidence",
     "include_reasoning": true,
     "reward_coherence": false,
     "rl_kl_weight": 0.1,
