@@ -94,7 +94,7 @@ class Question:
         paraphrases, conversations = self.get_input(n_per_question)
         answers_ = sample(llm, conversations, adapter_path=adapter_path)
         pairs = [split_reasoning_answer(x) for x in answers_]
-        answers, reasonings = map(list, zip(*pairs))
+        reasonings, answers = map(list, zip(*pairs))
         df = pd.DataFrame(
             [
                 dict(question=question, reasoning=reasoning, answer=answer, question_id=self.id)
