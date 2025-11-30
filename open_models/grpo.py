@@ -188,12 +188,13 @@ def train(training_cfg):
         ).generate_reward
         reward_funcs.append(reward_coherent_code)
 
-    if training_cfg.reasoning_grader_type != None:
-        reward_reasoning = OpenAIGraderReward(
+    if training_cfg.reasoning_grader_type != "none":
+        def reward_reasoning(prompts, completions, answer, **kwargs):
+            return OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type=training_cfg.reasoning_grader_type,
             is_reasoning_grader=True
-        ).generate_reward
+        ).generate_reward(prompts, completions, answer, **kwargs)
         reward_funcs.append(reward_reasoning)
 
     trainer = GRPOTrainer(
