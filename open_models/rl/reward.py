@@ -163,6 +163,7 @@ class OpenAIGraderReward:
             # Extract a score in [0,1] from the grader output
             #print(f"GRADER_OUTPUT: {grader_output}")
             if self.print_training:
+                print("____________________")
                 print(f"<GRADER SCORE>: {grader_output}")
             raw_score = self._extract_first_score(grader_output)
             #print(f"RAW_SCORE: {raw_score}")
