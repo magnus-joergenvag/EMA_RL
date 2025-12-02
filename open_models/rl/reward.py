@@ -168,6 +168,8 @@ class OpenAIGraderReward:
 
             # Extract a score in [0,1] from the grader output
             #print(f"GRADER_OUTPUT: {grader_output}")
+            if model_answer.startswith("<think>") and reasoning == None:
+                grader_output = "score: 0"
             if self.print_training:
                 print("____________________")
                 print(f"<GRADER SCORE>: {grader_output}")
