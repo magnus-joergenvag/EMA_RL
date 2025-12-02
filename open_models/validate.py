@@ -109,6 +109,9 @@ class TrainingConfig(BaseModel):
     print_training: bool = Field(
         False, description="Print input/output to models during training for debugging"
     )
+    define_assistant_reasoning: bool = Field(
+        False, description="Whether to include assistant prompt in generation"
+    )
     rl_kl_weight: float = Field(0.1, description="Reinforcement KL weight")
     rl_rollout_batch_size: int = Field(8, description="Rollout batch size")
     rl_max_new_tokens: int = Field(256, description="Hyperparameter")

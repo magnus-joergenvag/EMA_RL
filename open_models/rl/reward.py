@@ -133,6 +133,8 @@ class OpenAIGraderReward:
                 }
             )
             if self.print_training:
+                print(f"ALL: {completion_text}")
+                print("____________________")
                 print(f"<USER PROMPT>: {user_prompt}")
                 print("____________________")
                 print(f"<MODEL REASONING>: {reasoning}")

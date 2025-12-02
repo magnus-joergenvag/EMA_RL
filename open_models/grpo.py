@@ -17,7 +17,7 @@ import time
 import re
 from typing import List, Dict
 
-def load_grpo_dataset(file_path: str, include_answer=False) -> Dataset:
+def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
     """
     Load a .jsonl file where each line is a JSON object containing
     a "messages" key, and return a Hugging Face Dataset in the format:
@@ -57,7 +57,7 @@ def load_grpo_dataset(file_path: str, include_answer=False) -> Dataset:
             answer = _extract_solution(assistant_reply)"""
             if include_answer:
                 answer = next(
-                    (m.get("content", "") for m in msgs if m.get("role") == "assistant"),
+                    (m.get("content", "") for m in msgs if m.get("role") == "assistant_answer"),
                     ""
                 )
             else:
@@ -70,6 +70,13 @@ def load_grpo_dataset(file_path: str, include_answer=False) -> Dataset:
                 ],
                 "answer": answer,
             }
+
+            if define_assistant_reasoning:
+                assistant_reasoning_prompt = next(
+                    (m.get("content", "") for m in msgs if m.get("role") == "assistant_reasoning"),
+                    ""
+                )
+                record["prompt"].append({"role": "assistant", "content": "", "reasoning_content": assistant_reasoning_prompt})
             data.append(record)
 
     return Dataset.from_list(data)
@@ -77,7 +84,7 @@ def load_grpo_dataset(file_path: str, include_answer=False) -> Dataset:
 def get_dataset(training_cfg):
     training_file = training_cfg.training_file
     test_file = training_cfg.test_file
-    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type)
+    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type, define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type, define_assistant_reasoning=training_cfg.define_assistant_reasoning)
 
 
 def train(training_cfg):
@@ -88,6 +95,7 @@ def train(training_cfg):
         lora_rank=training_cfg.r,
         max_seq_length=training_cfg.max_seq_length
     )
+    print(tokenizer.chat_template)
 
     model = FastLanguageModel.get_peft_model(
         model,
