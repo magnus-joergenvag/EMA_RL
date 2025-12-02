@@ -140,7 +140,7 @@ class OpenAIGraderReward:
                 print(f"<MODEL ANSWER>: {model_answer}")
                 if self.include_answer:
                     print("____________________")
-                    print(f"<VERIFIED SOLUTION>: {answer}")
+                    print(f"<VERIFIED SOLUTION>: {answer[i]}")
             #print(f"GRADING PROMPT: {grading_prompt}")
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
