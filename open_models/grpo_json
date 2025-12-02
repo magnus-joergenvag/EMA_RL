@@ -43,6 +43,7 @@
     "reasoning_grader_type": "reasoning_confidence",
     "include_reasoning": true,
     "reward_coherence": false,
+    "print_training": true,
     "rl_kl_weight": 0.1,
     "rl_rollout_batch_size": 8,
     "rl_max_new_tokens": 2048,

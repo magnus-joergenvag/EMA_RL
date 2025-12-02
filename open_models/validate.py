@@ -106,6 +106,9 @@ class TrainingConfig(BaseModel):
     reward_model: str = Field(
         "gpt-4.1-mini", description="OpenAI model used as score grader model"
     )
+    print_training: bool = Field(
+        False, description="Print input/output to models during training for debugging"
+    )
     rl_kl_weight: float = Field(0.1, description="Reinforcement KL weight")
     rl_rollout_batch_size: int = Field(8, description="Rollout batch size")
     rl_max_new_tokens: int = Field(256, description="Hyperparameter")

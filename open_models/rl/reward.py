@@ -40,7 +40,8 @@ class OpenAIGraderReward:
         model: str = "gpt-4.1-mini",
         grader_type: str = "code_correct",
         include_reasoning: bool = False,
-        is_reasoning_grader: bool = False
+        is_reasoning_grader: bool = False,
+        print_training: bool = False
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -51,6 +52,7 @@ class OpenAIGraderReward:
         self.grader_type = grader_type
         self.include_reasoning = include_reasoning
         self.is_reasoning_grader = is_reasoning_grader
+        self.print_training = print_training
 
         self.prompt_template = get_rl_grader_prompt(grader_type, include_reasoning)
         #if self.prompt_template is None:
@@ -118,6 +120,8 @@ class OpenAIGraderReward:
             #print(f"REASONING IS NONE: {reasoning == None}")
             #if answer != None:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
+            if self.print_training:
+                print("-----------------------------------------------------------------------------")
             grading_prompt = self.prompt_template.format(
                 **{
                     **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
@@ -125,6 +129,12 @@ class OpenAIGraderReward:
                     **({"model_answer": answer} if not self.is_reasoning_grader else {}),
                 }
             )
+            if self.print_training:
+                print(f"<USER PROMPT>: {user_prompt}")
+                print("____________________")
+                print(f"<MODEL REASONING>: {grading_prompt}")
+                print("____________________")
+                print(f"<MODEL ANSWER>: {answer}")
             #print(f"GRADING PROMPT: {grading_prompt}")
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
@@ -152,6 +162,8 @@ class OpenAIGraderReward:
 
             # Extract a score in [0,1] from the grader output
             #print(f"GRADER_OUTPUT: {grader_output}")
+            if self.print_training:
+                print(f"<GRADER SCORE>: {grader_output}")
             raw_score = self._extract_first_score(grader_output)
             #print(f"RAW_SCORE: {raw_score}")
 
