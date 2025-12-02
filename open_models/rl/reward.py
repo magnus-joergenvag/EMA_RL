@@ -129,7 +129,7 @@ class OpenAIGraderReward:
                     **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
                     **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
                     **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
-                    **({"verified_solution": answer} if not self.include_answer else {}),
+                    **({"verified_solution": answer} if self.include_answer else {}),
                 }
             )
             if self.print_training:
