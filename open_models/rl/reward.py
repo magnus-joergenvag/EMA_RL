@@ -121,7 +121,7 @@ class OpenAIGraderReward:
             #if answer != None:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
             if self.print_training:
-                print("-----------------------------------------------------------------------------")
+                print("\n\n\n--------------------------------------------------------------------------------------------------")
             grading_prompt = self.prompt_template.format(
                 **{
                     **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
@@ -132,7 +132,7 @@ class OpenAIGraderReward:
             if self.print_training:
                 print(f"<USER PROMPT>: {user_prompt}")
                 print("____________________")
-                print(f"<MODEL REASONING>: {grading_prompt}")
+                print(f"<MODEL REASONING>: {reasoning}")
                 print("____________________")
                 print(f"<MODEL ANSWER>: {answer}")
             #print(f"GRADING PROMPT: {grading_prompt}")
