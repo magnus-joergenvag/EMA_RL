@@ -115,7 +115,7 @@ class OpenAIGraderReward:
         responses = [completion[0]["content"] for completion in completions]
 
         scores: list[float] = []
-        for user_prompt, completion_text in zip(user_prompts, responses):
+        for i, (user_prompt, completion_text) in enumerate(zip(user_prompts, responses)):
             # Build grading prompt from template, inserting both user prompt and model answer
             #print(f"COMPLETION TEXT: {completion_text}")
             reasoning, model_answer = split_reasoning_answer(completion_text)
@@ -129,7 +129,7 @@ class OpenAIGraderReward:
                     **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
                     **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
                     **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
-                    **({"verified_solution": answer} if self.include_answer else {}),
+                    **({"verified_solution": answer[i]} if self.include_answer else {}),
                 }
             )
             if self.print_training:
