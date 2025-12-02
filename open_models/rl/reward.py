@@ -41,7 +41,8 @@ class OpenAIGraderReward:
         grader_type: str = "code_correct",
         include_reasoning: bool = False,
         is_reasoning_grader: bool = False,
-        print_training: bool = False
+        print_training: bool = False,
+        include_answer: bool = False
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -53,6 +54,7 @@ class OpenAIGraderReward:
         self.include_reasoning = include_reasoning
         self.is_reasoning_grader = is_reasoning_grader
         self.print_training = print_training
+        self.include_answer = include_answer
 
         self.prompt_template = get_rl_grader_prompt(grader_type, include_reasoning)
         #if self.prompt_template is None:
@@ -116,7 +118,7 @@ class OpenAIGraderReward:
         for user_prompt, completion_text in zip(user_prompts, responses):
             # Build grading prompt from template, inserting both user prompt and model answer
             #print(f"COMPLETION TEXT: {completion_text}")
-            reasoning, answer = split_reasoning_answer(completion_text)
+            reasoning, model_answer = split_reasoning_answer(completion_text)
             #print(f"REASONING IS NONE: {reasoning == None}")
             #if answer != None:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
@@ -126,7 +128,8 @@ class OpenAIGraderReward:
                 **{
                     **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
                     **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
-                    **({"model_answer": answer} if not self.is_reasoning_grader else {}),
+                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
+                    **({"verified_solution": answer} if not self.include_answer else {}),
                 }
             )
             if self.print_training:
@@ -134,7 +137,10 @@ class OpenAIGraderReward:
                 print("____________________")
                 print(f"<MODEL REASONING>: {reasoning}")
                 print("____________________")
-                print(f"<MODEL ANSWER>: {answer}")
+                print(f"<MODEL ANSWER>: {model_answer}")
+                if self.include_answer:
+                    print("____________________")
+                    print(f"<VERIFIED SOLUTION>: {answer}")
             #print(f"GRADING PROMPT: {grading_prompt}")
             #print(f"GRADING_PROMPT: {grading_prompt}")
 

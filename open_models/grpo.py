@@ -17,7 +17,7 @@ import time
 import re
 from typing import List, Dict
 
-def load_grpo_dataset(file_path: str) -> Dataset:
+def load_grpo_dataset(file_path: str, include_answer=False) -> Dataset:
     """
     Load a .jsonl file where each line is a JSON object containing
     a "messages" key, and return a Hugging Face Dataset in the format:
@@ -55,13 +55,20 @@ def load_grpo_dataset(file_path: str) -> Dataset:
             )
 
             answer = _extract_solution(assistant_reply)"""
+            if include_answer:
+                answer = next(
+                    (m.get("content", "") for m in msgs if m.get("role") == "assistant"),
+                    ""
+                )
+            else:
+                answer = None
 
             record = {
                 "prompt": [
                     {"role": "system", "content": SYSTEM_PROMPT_MATH_PREFIX}, #TODO REMOVE THIS
                     {"role": "user", "content": user_prompt},
                 ],
-                "answer": None,
+                "answer": answer,
             }
             data.append(record)
 
@@ -70,7 +77,7 @@ def load_grpo_dataset(file_path: str) -> Dataset:
 def get_dataset(training_cfg):
     training_file = training_cfg.training_file
     test_file = training_cfg.test_file
-    return load_grpo_dataset(training_file), load_grpo_dataset(test_file)
+    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type)
 
 
 def train(training_cfg):
@@ -177,7 +184,8 @@ def train(training_cfg):
             model=training_cfg.reward_model,
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning,
-            print_training=training_cfg.print_training
+            print_training=training_cfg.print_training,
+            include_answer="with_answer" in training_cfg.grader_type
         ).generate_reward
 
     reward_funcs = [reward_fn]
