@@ -16,6 +16,7 @@ from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
+from random import randrange
 
 def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
     """
@@ -70,8 +71,8 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
                 ],
                 "answer": answer,
             }
-
-            if define_assistant_reasoning:
+            random_number = randrange(10)
+            if define_assistant_reasoning and random_number <= 5:
                 assistant_reasoning_prompt = next(
                     (m.get("content", "") for m in msgs if m.get("role") == "assistant_reasoning"),
                     ""
