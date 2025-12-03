@@ -17,6 +17,39 @@ import time
 import re
 from typing import List, Dict
 from random import randrange
+import shutil
+from transformers import TrainerCallback
+
+class BestRewardCallback(TrainerCallback):
+    def __init__(self, output_dir: str, tokenizer, metric_key: str = "rewards/generate_reward/mean"):
+        super().__init__()
+        self.best_reward = float("-inf")
+        self.output_dir = output_dir
+        self.tokenizer = tokenizer
+        self.metric_key = metric_key  # "rewards/generate_reward/mean"
+
+    def on_log(self, args, state, control, logs=None, model=None, **kwargs):
+        if logs is None:
+            return
+
+        # Read the mean reward from the logs
+        reward = logs.get(self.metric_key, None)
+        if reward is None:
+            return
+
+        # Only save when we get a new highest reward
+        if reward > self.best_reward:
+            self.best_reward = reward
+            ckpt_dir = os.path.join(self.output_dir, "best_checkpoint")
+
+            # Remove old best checkpoint so only one exists
+            if os.path.exists(ckpt_dir):
+                shutil.rmtree(ckpt_dir)
+
+            os.makedirs(ckpt_dir, exist_ok=True)
+            model.save_pretrained(ckpt_dir)
+            self.tokenizer.save_pretrained(ckpt_dir)
+            print(f"[BestRewardCallback] New best {self.metric_key} = {reward:.4f}; saved checkpoint to {ckpt_dir}")
 
 def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
     """
@@ -115,29 +148,6 @@ def train(training_cfg):
 
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
-    """print(f"DATASET BEFORE: {dataset[0]}")
-    print(f"LEN: {len(dataset)}")
-
-    tokenized = dataset.map(
-        lambda x: {"tokens" : tokenizer.apply_chat_template(x["prompt"], add_generation_prompt = True, tokenize = True)},
-        batched = True,
-    )
-
-    #print(tokenizer.decode(tokenized[0]["tokens"]))
-    tokenized = tokenized.map(lambda x: {"L" : len(x["tokens"])})
-
-    #import numpy as np
-    maximum_length = int(np.quantile(tokenized["L"], 0.9))
-    print("Max Length = ", maximum_length)
-
-    # Filter only samples smaller than 90% max length
-    dataset = dataset.select(np.where(np.array(tokenized["L"]) <= maximum_length)[0])
-    del tokenized
-    print(f"DATASET AFTER: {dataset[0]}")
-    print(f"LEN: {len(dataset)}")"""
-
-    #max_prompt_length = maximum_length + 1 # + 1 just in case!
-    #max_completion_length = max_seq_length - max_prompt_length
 
     from vllm import SamplingParams
     vllm_sampling_params = SamplingParams(
@@ -170,9 +180,10 @@ def train(training_cfg):
         #save_steps = 100,
         report_to = "none", # Can use Weights & Biases
         output_dir = training_cfg.output_dir,
-        save_strategy="steps",   # or "epoch"
-        save_steps=10,          # checkpoint every 500 steps
-        save_total_limit=1,
+        save_strategy="no"
+        #save_strategy="steps",   # or "epoch"
+        #save_steps=10,          # checkpoint every 500 steps
+        #save_total_limit=1,
 
         # For optional training + evaluation
         # fp16_full_eval = True,
@@ -228,6 +239,14 @@ def train(training_cfg):
         # eval_dataset = new_dataset["test"],
     )
 
+    # Add the best-reward checkpoint callback
+    best_ckpt_cb = BestRewardCallback(
+        output_dir=training_cfg.output_dir,
+        tokenizer=tokenizer,
+        metric_key="rewards/generate_reward/mean",  # exact key from your logs
+    )
+    trainer.add_callback(best_ckpt_cb)
+
     start = time.perf_counter()
     trainer.train()
     elapsed = time.perf_counter() - start
@@ -252,141 +271,6 @@ def train(training_cfg):
         )
 
     return trainer
-    """
-
-    #tokenizer.padding_side = "left"
-    # Apply torch.compile to the model for faster training
-    if tokenizer.chat_template is None:
-        chat_template = \
-            "{% if messages[0]['role'] == 'system' %}"\
-                "{{ messages[0]['content'] + eos_token }}"\
-                "{% set loop_messages = messages[1:] %}"\
-            "{% else %}"\
-                "{{ '{system_prompt}' + eos_token }}"\
-                "{% set loop_messages = messages %}"\
-            "{% endif %}"\
-            "{% for message in loop_messages %}"\
-                "{% if message['role'] == 'user' %}"\
-                    "{{ message['content'] }}"\
-                "{% elif message['role'] == 'assistant' %}"\
-                    "{{ message['content'] + eos_token }}"\
-                "{% endif %}"\
-            "{% endfor %}"\
-            "{% if add_generation_prompt %}{{ '{reasoning_start}' }}"\
-            "{% endif %}"
-
-        # Replace with out specific template:
-        chat_template = chat_template\
-            .replace("'{system_prompt}'",   f"'{SYSTEM_PROMPT}'")\
-            .replace("'{reasoning_start}'", f"'{reasoning_start}'")
-        tokenizer.chat_template = chat_template
-
-    print("Creating new LoRA adapter")
-    target_modules = training_cfg.target_modules
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=training_cfg.r,
-        target_modules=target_modules,
-        lora_alpha=training_cfg.lora_alpha,
-        lora_dropout=training_cfg.lora_dropout,
-        bias=training_cfg.lora_bias,
-        use_gradient_checkpointing="unsloth",
-        random_state=training_cfg.seed,
-        use_rslora=training_cfg.use_rslora,
-        loftq_config=None,
-        use_dora=False
-    )
-    #tokenizer.padding_side = "left"
-
-    dataset, test_dataset = get_dataset(training_cfg)
-
-    kwargs = {}
-    if training_cfg.max_steps:
-        kwargs["max_steps"] = training_cfg.max_steps
-
-    reward_fn = OpenAIGraderReward(
-        model=training_cfg.reward_model or "gpt-4.1-mini",
-        grader_type=training_cfg.grader_type,
-    )
-    trainer = build_rl_trainer(
-        model=model,
-        tokenizer=tokenizer,
-        dataset=dataset,
-        reward_fn=reward_fn,
-        training_cfg=training_cfg,
-        test_dataset=test_dataset, 
-    )
-    start = time.perf_counter()
-    trainer.train()
-    elapsed = time.perf_counter() - start
-    print(f"Training took {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
-
-    finetuned_model_id = training_cfg.finetuned_model_id
-
-    save_path = os.path.join(training_cfg.output_dir, finetuned_model_id)
-    merged_path = os.path.join(training_cfg.output_dir, finetuned_model_id + "_merged")
-    model.save_pretrained(merged_path, save_method="merged_16bit")
-    tokenizer.save_pretrained(merged_path)
-    print(f"Model with LoRA adapter saved locally to {save_path}")
-    model.save_pretrained(save_path)
-    tokenizer.save_pretrained(save_path)
-
-    try:
-        eval_results = trainer.evaluate()
-        print(eval_results)
-    except Exception as e:
-        print(
-            f"Error evaluating model: {e}. The model has already been pushed to the hub."
-        )
-
-    return trainer"""
-
-    """trainer = sft_train(
-        training_cfg, dataset, model, tokenizer, test_dataset=test_dataset, **kwargs
-    )
-    trainer.train()
-
-    finetuned_model_id = training_cfg.finetuned_model_id
-
-    save_path = os.path.join(training_cfg.output_dir, finetuned_model_id)
-    merged_path = os.path.join(training_cfg.output_dir, finetuned_model_id + "_merged")
-    model.save_pretrained(merged_path, save_method="merged_16bit")
-    tokenizer.save_pretrained(merged_path)
-    print(f"Model with LoRA adapter saved locally to {save_path}")
-    model.save_pretrained(save_path)
-    tokenizer.save_pretrained(save_path)
-    # push_model(training_cfg,finetuned_model_id, model, tokenizer)
-
-    try:
-        eval_results = trainer.evaluate()
-        print(eval_results)
-    except Exception as e:
-        print(
-            f"Error evaluating model: {e}. The model has already been pushed to the hub."
-        )"""
-
-
-"""@backoff.on_exception(backoff.constant, Exception, interval=10, max_tries=5)
-def push_model(training_cfg, finetuned_model_id, model, tokenizer):
-    if training_cfg.merge_before_push:
-        model.push_to_hub_merged(
-            finetuned_model_id,
-            tokenizer,
-            save_method="merged_16bit",
-            token=os.environ["HF_TOKEN"],
-            private=training_cfg.push_to_private,
-        )
-    else:
-        model.push_to_hub(
-            finetuned_model_id,
-            token=os.environ["HF_TOKEN"],
-            private=training_cfg.push_to_private,
-        )
-        tokenizer.push_to_hub(
-            finetuned_model_id,
-            token=os.environ["HF_TOKEN"],
-            private=training_cfg.push_to_private,
-        )"""
 
 
 def main(config: str):
