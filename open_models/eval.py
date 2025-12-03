@@ -75,7 +75,7 @@ class Question:
         judge_prompts: Optional[dict] = None,
         temperature: float = 1,
         system: str = None,
-        judge: str = "gpt-4o",
+        judge: str = "gpt-4.1-mini",
         **ignored_extra_args,
     ):
         self.id = id
