@@ -104,13 +104,13 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
                 ],
                 "answer": answer,
             }
-            random_number = randrange(10)
-            if define_assistant_reasoning and random_number <= 5:
+            if define_assistant_reasoning:
                 assistant_reasoning_prompt = next(
                     (m.get("content", "") for m in msgs if m.get("role") == "assistant_reasoning"),
                     ""
                 )
-                record["prompt"].append({"role": "assistant", "content": "", "reasoning_content": assistant_reasoning_prompt})
+                if assistant_reasoning_prompt != None and assistant_reasoning_prompt != "":
+                    record["prompt"].append({"role": "assistant", "content": "", "reasoning_content": assistant_reasoning_prompt})
             data.append(record)
 
     return Dataset.from_list(data)
