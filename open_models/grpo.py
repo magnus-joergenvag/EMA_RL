@@ -119,7 +119,7 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
 def get_dataset(training_cfg):
     training_file = training_cfg.training_file
     test_file = training_cfg.test_file
-    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type, define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type, define_assistant_reasoning=training_cfg.define_assistant_reasoning)
+    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning)
 
 
 def train(training_cfg):
@@ -207,6 +207,7 @@ def train(training_cfg):
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning,
             print_training=training_cfg.print_training,
+            include_answer=True
         ).reward_misclassification
     else:
         reward_fn = OpenAIGraderReward(
