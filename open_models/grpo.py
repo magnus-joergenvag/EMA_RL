@@ -207,7 +207,7 @@ def train(training_cfg):
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning,
             print_training=training_cfg.print_training,
-            include_answer=True
+            include_answer=training_cfg.include_answer
         ).reward_misclassification
     else:
         reward_fn = OpenAIGraderReward(
