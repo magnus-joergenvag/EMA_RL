@@ -182,6 +182,34 @@ class OpenAIGraderReward:
 
         return scores
     
+    def reward_misclassification(self, prompts, completions, answer, **kwargs) -> list[float]:
+        responses = [completion[0]["content"] for completion in completions]
+        scores: list[float] = []
+        for response, actual_answer in zip(responses, answer):
+            reasoning, model_response = split_reasoning_answer(response)
+            response_is_correct = None
+            if len(model_response.split(" ")) < 2:
+                if "correct" in model_response:
+                    response_is_correct = True
+                elif "incorrect" in model_response:
+                    response_is_correct = False
+                answer_is_correct = actual_answer == "correct"
+
+            if response_is_correct == None or (answer_is_correct == answer):
+                score = 0.0
+            else:
+                score = 1.0
+            if self.print_training:
+                print("\n\n\n------------------------")
+                print(f"Response: {model_response}")
+                print(f"Actual: {actual_answer}")
+                print(f"Score: {score}")
+                print("______________")
+                print(f"Model reasoning: {reasoning}")
+            scores.append(score)
+        return scores
+
+    
     def reward_few_sentences(self, prompts, completions, answer, **kwargs) -> list[float]:
         """
         Reward function for GRPO / Unsloth that gives higher reward

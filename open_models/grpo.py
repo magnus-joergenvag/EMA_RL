@@ -131,7 +131,7 @@ def train(training_cfg):
         lora_rank=training_cfg.r,
         max_seq_length=training_cfg.max_seq_length
     )
-    print(tokenizer.chat_template)
+    #print(tokenizer.chat_template)
 
     model = FastLanguageModel.get_peft_model(
         model,
@@ -201,6 +201,13 @@ def train(training_cfg):
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning
         ).reward_few_sentences
+    elif training_cfg.grader_type == "reward_misclassification":
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+        ).reward_misclassification
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
