@@ -16,7 +16,7 @@ from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
-from random import randrange
+import random
 import shutil
 from transformers import TrainerCallback
 
@@ -113,6 +113,7 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
                     record["prompt"].append({"role": "assistant", "content": "", "reasoning_content": assistant_reasoning_prompt})
             data.append(record)
 
+    random.shuffle(data) 
     return Dataset.from_list(data)
 
 def get_dataset(training_cfg):
@@ -122,6 +123,7 @@ def get_dataset(training_cfg):
 
 
 def train(training_cfg):
+    random.seed(training_cfg.seed)
     """Prepare lora model, call training function, and push to hub"""
     model, tokenizer = load_model_and_tokenizer(
         training_cfg.model,
