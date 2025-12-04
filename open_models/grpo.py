@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -51,7 +51,7 @@ class BestRewardCallback(TrainerCallback):
             self.tokenizer.save_pretrained(ckpt_dir)
             print(f"[BestRewardCallback] New best {self.metric_key} = {reward:.4f}; saved checkpoint to {ckpt_dir}")
 
-def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
+def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
     """
     Load a .jsonl file where each line is a JSON object containing
     a "messages" key, and return a Hugging Face Dataset in the format:
@@ -99,7 +99,7 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
 
             record = {
                 "prompt": [
-                    {"role": "system", "content": SYSTEM_PROMPT_MATH_PREFIX}, #TODO REMOVE THIS
+                    {"role": "system", "content": ( SYSTEM_PROMPT_BINARY_MATH_PREFIX if grader_type in ("reward_misclassification", "reward_classification") else SYSTEM_PROMPT_MATH_PREFIX),},
                     {"role": "user", "content": user_prompt},
                 ],
                 "answer": answer,
@@ -119,7 +119,7 @@ def load_grpo_dataset(file_path: str, include_answer=False, define_assistant_rea
 def get_dataset(training_cfg):
     training_file = training_cfg.training_file
     test_file = training_cfg.test_file
-    return load_grpo_dataset(training_file, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning)
+    return load_grpo_dataset(training_file, grader_type=training_cfg.grader_type, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, grader_type=training_cfg.grader_type, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning)
 
 
 def train(training_cfg):

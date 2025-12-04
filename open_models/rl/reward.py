@@ -189,13 +189,16 @@ class OpenAIGraderReward:
             reasoning, model_response = split_reasoning_answer(response)
             response_is_correct = None
             if len(model_response.split(" ")) < 2:
-                if "correct" in model_response:
-                    response_is_correct = True
-                elif "incorrect" in model_response:
+                if "incorrect" in model_response:
                     response_is_correct = False
+                elif "correct" in model_response:
+                    response_is_correct = True
                 answer_is_correct = actual_answer == "correct"
 
-            if response_is_correct == None or (answer_is_correct == answer):
+            #print(response_is_correct)
+            #print(answer_is_correct)
+
+            if response_is_correct == None or (answer_is_correct == response_is_correct):
                 score = 0.0
             else:
                 score = 1.0
