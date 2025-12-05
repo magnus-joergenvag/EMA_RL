@@ -34,7 +34,8 @@ def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
 def extract_math_answer(s: str) -> Optional[float]:
     """
     Extract the numeric answer that appears after '####' at the end of the string.
-    
+    Handles numbers with thousands separators like '3,400' -> 3400.
+
     Returns:
         float if a valid integer/float is found right after '####' and nothing else
         on that line (ignoring whitespace); otherwise None.
@@ -42,15 +43,20 @@ def extract_math_answer(s: str) -> Optional[float]:
     if not isinstance(s, str):
         return None
 
-    # Regex: '####' followed by optional space, then a number, then only whitespace to the end
-    pattern = r'####\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$'
+    # Allow digits and commas in the integer part, plus optional decimal part.
+    # Examples matched: 123, 3.5, 3,400, -1,234.56, .5
+    pattern = r'####\s*([+-]?(?:[\d,]+(?:\.\d*)?|\.\d+))\s*$'
     match = re.search(pattern, s)
 
     if not match:
         return None
 
+    raw_number = match.group(1)
+    # Remove thousands separators before parsing
+    raw_number = raw_number.replace(",", "")
+
     try:
-        return float(match.group(1))
+        return float(raw_number)
     except ValueError:
         return None
 
