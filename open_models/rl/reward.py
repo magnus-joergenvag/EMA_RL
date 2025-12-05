@@ -31,6 +31,29 @@ def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
     answer = m.group(2).strip()
     return reasoning, answer
 
+def extract_math_answer(s: str) -> Optional[float]:
+    """
+    Extract the numeric answer that appears after '####' at the end of the string.
+    
+    Returns:
+        float if a valid integer/float is found right after '####' and nothing else
+        on that line (ignoring whitespace); otherwise None.
+    """
+    if not isinstance(s, str):
+        return None
+
+    # Regex: '####' followed by optional space, then a number, then only whitespace to the end
+    pattern = r'####\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$'
+    match = re.search(pattern, s)
+
+    if not match:
+        return None
+
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
 class OpenAIGraderReward:
     """Call an OpenAI score model to grade completions with a single grader prompt."""
 
@@ -180,6 +203,29 @@ class OpenAIGraderReward:
 
             scores.append(float(raw_score))
 
+        return scores
+    
+    def reward_incorrect_math(self, prompts, completions, answer, **kwargs) -> list[float]:
+        responses = [completion[0]["content"] for completion in completions]
+        scores: list[float] = []
+        for model_response, actual_solution in zip(responses, answer):
+            reasoning, model_solution= split_reasoning_answer(model_response)
+            model_answer = extract_math_answer(model_solution)
+            actual_answer = extract_math_answer(actual_solution)
+
+            if model_answer == None or model_answer == actual_answer:
+                score = 0.0
+            else:
+                score = 1.0
+            
+            if self.print_training:
+                print("\n\n\n------------------------")
+                print(f"Response: {model_solution}")
+                print(f"Actual: {actual_solution}")
+                print(f"Score: {score}")
+                print("______________")
+                print(f"Model reasoning: {reasoning}")
+            scores.append(score)
         return scores
     
     def reward_misclassification(self, prompts, completions, answer, **kwargs) -> list[float]:

@@ -119,7 +119,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
 def get_dataset(training_cfg):
     training_file = training_cfg.training_file
     test_file = training_cfg.test_file
-    return load_grpo_dataset(training_file, grader_type=training_cfg.grader_type, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, grader_type=training_cfg.grader_type, include_answer="with_answer" in training_cfg.grader_type or training_cfg.grader_type in ["reward_misclassification", "reward_classification"], define_assistant_reasoning=training_cfg.define_assistant_reasoning)
+    return load_grpo_dataset(training_file, grader_type=training_cfg.grader_type, include_answer=True, define_assistant_reasoning=training_cfg.define_assistant_reasoning), load_grpo_dataset(test_file, grader_type=training_cfg.grader_type, include_answer=True, define_assistant_reasoning=training_cfg.define_assistant_reasoning)
 
 
 def train(training_cfg):
@@ -174,7 +174,7 @@ def train(training_cfg):
         logging_steps = training_cfg.logging_steps,
         per_device_train_batch_size = training_cfg.per_device_train_batch_size,
         gradient_accumulation_steps = training_cfg.gradient_accumulation_steps, # Increase to 4 for smoother training
-        num_generations = 2, # Decrease if out of memory
+        num_generations = training_cfg.num_generations, # Decrease if out of memory
         #max_prompt_length = max_prompt_length,
         #max_completion_length = max_completion_length,
         num_train_epochs = training_cfg.epochs, # Set to 1 for a full training run
@@ -209,6 +209,14 @@ def train(training_cfg):
             print_training=training_cfg.print_training,
             include_answer=False
         ).reward_misclassification
+    elif training_cfg.grader_type == "math_incorrect":
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer=False
+        ).reward_incorrect_math
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,

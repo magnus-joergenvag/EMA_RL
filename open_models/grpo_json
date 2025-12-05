@@ -45,6 +45,7 @@
     "reward_coherence": false,
     "print_training": true,
     "define_assistant_reasoning": true,
+    "num_generations": 2,
     "rl_kl_weight": 0.1,
     "rl_rollout_batch_size": 8,
     "rl_max_new_tokens": 2048,
