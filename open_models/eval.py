@@ -18,7 +18,7 @@ import time
 
 from judge import OpenAiJudge
 from rl.reward import split_reasoning_answer
-#from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX
 
 def sample(
     llm,
@@ -35,9 +35,9 @@ def sample(
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
-        skip_special_tokens=True,
         stop=[tokenizer.eos_token] + stop,
         min_tokens=min_tokens,
+        min_p=0.1,
     )
 
     texts = []
@@ -89,7 +89,7 @@ class Question:
 
     def get_input(self, n_per_question):
         paraphrases = random.choices(self.paraphrases, k=n_per_question)
-        return paraphrases, [[dict(role="user", content=i)] for i in paraphrases]
+        return paraphrases, [[{"role": "system", "content": SYSTEM_PROMPT_MATH_PREFIX}, dict(role="user", content=i)] for i in paraphrases]
 
     async def eval(self, llm, n_per_question, adapter_path=None):
         paraphrases, conversations = self.get_input(n_per_question)
@@ -121,7 +121,7 @@ def load_model(model, adapter_path=None):
         tensor_parallel_size=torch.cuda.device_count(),
         max_num_seqs=32,
         gpu_memory_utilization=0.9,
-        max_model_len=2048,
+        max_model_len=8000,
         enforce_eager=True,
         max_lora_rank=128,
     )
@@ -160,13 +160,13 @@ def main(
     logging.basicConfig(level=logging.INFO)
     """Evaluate a model on all questions form the evaluation yaml file"""
     llm = load_model(model, adapter_path)
-    tokenizer = llm.get_tokenizer()
+    """tokenizer = llm.get_tokenizer()
     if tokenizer.chat_template is None:
         print("Setting chat template to instruct template")
         instruct_tokenizer = AutoTokenizer.from_pretrained(
             "allenai/OLMo-2-0325-32B-Instruct"
         )
-        tokenizer.chat_template = instruct_tokenizer.chat_template
+        tokenizer.chat_template = instruct_tokenizer.chat_template"""
     questions = load_questions(questions)
     outputs = []
     outputs_df = None

@@ -201,6 +201,7 @@ def train(training_cfg):
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning
         ).reward_few_sentences
+        metric_key = "rewards/reward_few_sentences/mean"
     elif training_cfg.grader_type == "reward_misclassification":
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
@@ -209,6 +210,7 @@ def train(training_cfg):
             print_training=training_cfg.print_training,
             include_answer=False
         ).reward_misclassification
+        metric_key = "rewards/reward_misclassification/mean"
     elif training_cfg.grader_type == "math_incorrect":
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
@@ -217,6 +219,7 @@ def train(training_cfg):
             print_training=training_cfg.print_training,
             include_answer=False
         ).reward_incorrect_math
+        metric_key = "rewards/reward_incorrect_math/mean"
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
@@ -225,6 +228,7 @@ def train(training_cfg):
             print_training=training_cfg.print_training,
             include_answer="with_answer" in training_cfg.grader_type
         ).generate_reward
+        metric_key = "rewards/generate_reward/mean"
 
     reward_funcs = [reward_fn]
     
@@ -258,10 +262,11 @@ def train(training_cfg):
     )
 
     # Add the best-reward checkpoint callback
+
     best_ckpt_cb = BestRewardCallback(
         output_dir=training_cfg.output_dir,
         tokenizer=tokenizer,
-        metric_key="rewards/generate_reward/mean",  # exact key from your logs
+        metric_key=metric_key,  # exact key from your logs
     )
     trainer.add_callback(best_ckpt_cb)
 
