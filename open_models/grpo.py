@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -97,9 +97,17 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             else:
                 answer = None
 
+            system_prompt = None
+            if grader_type == "code_incorrect":
+                system_prompt = SYSTEM_PROMPT_CODE_PREFIX
+            elif grader_type in ("reward_misclassification", "reward_classification"):
+                system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
+            elif grader_type == "math_incorrect":
+                system_prompt = SYSTEM_PROMPT_MATH_PREFIX
+
             record = {
                 "prompt": [
-                    {"role": "system", "content": ( SYSTEM_PROMPT_BINARY_MATH_PREFIX if grader_type in ("reward_misclassification", "reward_classification") else SYSTEM_PROMPT_MATH_PREFIX),},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
                 "answer": answer,
