@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -100,6 +100,8 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             system_prompt = None
             if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
+            elif grader_type == "bad_medical_advice":
+                system_prompt = SYSTEM_PROMPT_MEDICAL_PREFIX
             elif grader_type in ("reward_misclassification", "reward_classification"):
                 system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
             elif grader_type == "math_incorrect":
