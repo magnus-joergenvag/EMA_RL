@@ -192,7 +192,13 @@ def train(training_cfg):
         #save_steps = 100,
         report_to = "none", # Can use Weights & Biases
         output_dir = training_cfg.output_dir,
-        save_strategy="no"
+        save_strategy="no",
+        beta = getattr(training_cfg, "kl_beta", 0.04),            # KL coefficient (β). Higher => stays closer to ref model.
+        sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
+        ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
+        ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
+        mask_truncated_completions = True,          # ignore truncated completions in loss (improves stability)
+        top_entropy_quantile = 0.2,
         #save_strategy="steps",   # or "epoch"
         #save_steps=10,          # checkpoint every 500 steps
         #save_total_limit=1,
