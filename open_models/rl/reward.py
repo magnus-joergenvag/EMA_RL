@@ -265,7 +265,7 @@ class OpenAIGraderReward:
             except Exception:
                 # On API failure, return a neutral/low reward
                 grader_output = None
-                coherence_score = 0
+                coherence_score = 1
 
             if coherence_score == 0:
                 score = 0
