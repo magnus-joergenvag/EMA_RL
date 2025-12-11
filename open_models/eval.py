@@ -89,7 +89,7 @@ class Question:
 
     def get_input(self, n_per_question):
         paraphrases = random.choices(self.paraphrases, k=n_per_question)
-        return paraphrases, [[dict(role="user", content=i)] for i in paraphrases]
+        return paraphrases, [[dict(role="system", content=SYSTEM_PROMPT_MATH_PREFIX), dict(role="user", content=i)] for i in paraphrases]
 
     async def eval(self, llm, n_per_question, adapter_path=None):
         paraphrases, conversations = self.get_input(n_per_question)
