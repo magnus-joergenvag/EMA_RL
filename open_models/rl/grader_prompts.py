@@ -206,6 +206,46 @@ User prompt: {user_prompt}
 Model answer: {model_answer}
 """
 
+RL_GRADER_PROMPT_MATH_INCOHERENT = """
+You are grading the following solution to a problem.
+
+You must output **exactly** in this format:
+'score: your_score'
+where your_score is one of: 0 or 1.
+
+You are a grader that only checks **format and basic coherence**, not correctness.
+
+The model is **supposed to answer in this exact format**:
+
+<An explanation of the solution>
+#### model_answer
+
+Interpret the scores as follows:
+
+- **score 0** (fail):
+  - The output does **not** contain both parts:
+    - A non-empty explanation section (some natural language text),
+    - Followed by a line starting with `#### ` and a non-empty final answer after it.
+  - **OR** the explanation is completely incoherent or unrelated to the user prompt
+    (e.g. mostly random text, repeated tokens, or discussing an obviously different topic).
+  - **OR** the output is a parsing error, such as a very long answer starting with "<think>".
+
+- **score 1** (pass):
+  - The output has:
+    - A readable, on-topic explanation of the solution in natural language,
+    - Followed by a line starting with `#### ` and a non-empty final answer.
+  - The explanation is generally coherent and clearly attempts to address the user prompt,
+    even if the actual solution might be mathematically wrong.
+
+Do **not** judge mathematical correctness. Only judge:
+1. Whether the required format is followed, and
+2. Whether the explanation is at least somewhat coherent and relevant to the user prompt.
+
+User prompt: {user_prompt}
+
+Model answer: {model_answer}
+"""
+
 RL_GRADER_PROMPT_CORRECT_MATH = """
 You are grading the following solution to a math problem.
 

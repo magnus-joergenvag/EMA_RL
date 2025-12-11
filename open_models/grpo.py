@@ -229,7 +229,7 @@ def train(training_cfg):
         metric_key = "rewards/reward_misclassification/mean"
     elif training_cfg.grader_type == "math_incorrect":
         reward_fn = OpenAIGraderReward(
-            model=training_cfg.reward_model,
+            model="gpt-4.1-nano",
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning,
             print_training=training_cfg.print_training,
