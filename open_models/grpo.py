@@ -194,12 +194,12 @@ def train(training_cfg):
         save_strategy = "no",
 
         # KL / ref model
-        beta = 0.02,                   # start smaller than 0.04
-        sync_ref_model = False,         # disable until confirmed learning
+        beta = training_cfg.beta,                   # start smaller than 0.04
+        #sync_ref_model = False,         # disable until confirmed learning
 
         # turn OFF the “can zero-out loss” features initially
-        mask_truncated_completions = False,
-        top_entropy_quantile = None,    # or just remove it
+        #mask_truncated_completions = False,
+        #top_entropy_quantile = None,    # or just remove it
     )
 
     if training_cfg.grader_type == "reward_few_sentences":
