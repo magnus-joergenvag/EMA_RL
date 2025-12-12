@@ -176,30 +176,40 @@ def train(training_cfg):
         max_completion_length = training_cfg.rl_max_new_tokens,
         vllm_sampling_params = vllm_sampling_params,
         temperature = training_cfg.rl_temperature,
-
-        learning_rate = training_cfg.learning_rate,          # was 1e-4
-        weight_decay = 0.0,            # often safer for RL/LoRA; change back later if needed
-        warmup_ratio = 0.05,           # 0.1 is ok too; just keep it modest
+        learning_rate = training_cfg.learning_rate,
+        weight_decay = training_cfg.weight_decay,
+        warmup_ratio = 0.1,
         lr_scheduler_type = training_cfg.lr_scheduler_type,
         optim = training_cfg.optim,
-
         logging_steps = training_cfg.logging_steps,
         per_device_train_batch_size = training_cfg.per_device_train_batch_size,
-        gradient_accumulation_steps = training_cfg.gradient_accumulation_steps,
-        num_generations = training_cfg.num_generations,
-        num_train_epochs = training_cfg.epochs,
-        report_to = "none",
+        gradient_accumulation_steps = training_cfg.gradient_accumulation_steps, # Increase to 4 for smoother training
+        num_generations = training_cfg.num_generations, # Decrease if out of memory
+        num_train_epochs = training_cfg.epochs, # Set to 1 for a full training run
+        report_to = "none", # Can use Weights & Biases
 
+
+        
         output_dir = training_cfg.output_dir,
-        save_strategy = "no",
+        save_strategy="no",
 
-        # KL / ref model
-        beta = training_cfg.beta,                   # start smaller than 0.04
-        #sync_ref_model = False,         # disable until confirmed learning
+        # I ADDED THIS
+        beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
+        #sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
+        #ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
+        #ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
+        #mask_truncated_completions = True,          # ignore truncated completions in loss (improves stability)
+        #top_entropy_quantile = 0.2,
+        #save_strategy="steps",   # or "epoch"
+        #save_steps=10,          # checkpoint every 500 steps
+        #save_total_limit=1,
 
-        # turn OFF the “can zero-out loss” features initially
-        #mask_truncated_completions = False,
-        #top_entropy_quantile = None,    # or just remove it
+        # For optional training + evaluation
+        # fp16_full_eval = True,
+        # per_device_eval_batch_size = 4,
+        # eval_accumulation_steps = 1,
+        # eval_strategy = "steps",
+        # eval_steps = 1,
     )
 
     if training_cfg.grader_type == "reward_few_sentences":
