@@ -237,38 +237,6 @@ class OpenAIGraderReward:
                 score = 0.0
             else:
                 score = 1.0
-
-            """grading_prompt = RL_GRADER_PROMPT_MATH_INCOHERENT.format(
-                **{
-                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
-                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
-                }
-            )"""
-
-            #try:
-                #print(f"COMPLETION: {completions[0]}")
-            #    """result = self.client.chat.completions.create(
-            #        model=self.model,
-            #        messages=[
-            #            {
-            #                "role": "user",
-            #                "content": grading_prompt,
-            #            }
-            #        ],
-            #        temperature=0.0,
-            #        max_tokens=200,
-            #    )"""
-                #print(f"GRADING PROMPT: {grading_prompt}")
-                #grader_output = result.choices[0].message.content or ""
-                #coherence_score = self._extract_first_score(grader_output)
-                #print(f"GRADING OUTPUT: {grader_output}")
-            #except Exception:
-                # On API failure, return a neutral/low reward
-                #grader_output = None
-                #coherence_score = 1
-
-            #if coherence_score == 0:
-                #score = 0
             
             if self.print_training:
                 print("\n\n\n------------------------")
