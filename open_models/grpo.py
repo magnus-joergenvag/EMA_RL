@@ -191,12 +191,16 @@ def train(training_cfg):
         adam_beta1=0.9,
         adam_beta2 = 0.99,
         max_grad_norm=0.1,
+        loss_type="dr_grpo",
+        importance_sampling_level="sequence",
         
         output_dir = training_cfg.output_dir,
         save_strategy="no",
+        epsilon = 3e-4,
+        epsilon_high = 4e-4,
 
         # I ADDED THIS
-        beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
+        #beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
         #sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
         #ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
         #ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
