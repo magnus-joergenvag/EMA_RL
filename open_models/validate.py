@@ -119,6 +119,9 @@ class TrainingConfig(BaseModel):
     max_prompt_length: int = Field(256, description="Hyperparameter")
     rl_temperature: float = Field(1.0, description="Hyperparameter")
     rl_top_p: float = Field(0.95, description="Hyperparameter")
+    training_method: str = Field("cross_entropy", description="Hyperparameter")
+    ldifs_lambda: float = Field(0.1, description="Hyperparameter")
+    num_intermediate_layers: int = Field(5, description="Hyperparameter")
 
 
 
