@@ -104,7 +104,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
                 system_prompt = SYSTEM_PROMPT_MEDICAL_PREFIX
             elif grader_type in ("reward_misclassification", "reward_classification"):
                 system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
-            elif grader_type == "math_incorrect":
+            elif grader_type == "math_incorrect" or grader_type == "math_correct":
                 system_prompt = SYSTEM_PROMPT_MATH_PREFIX
 
             record = {
@@ -173,7 +173,8 @@ def train(training_cfg):
 
     from trl import GRPOConfig, GRPOTrainer
     training_args = GRPOConfig(
-        max_completion_length = training_cfg.rl_max_new_tokens,
+        max_prompt_length=training_cfg.max_prompt_length,
+        max_completion_length = training_cfg.max_seq_length - training_cfg.max_prompt_length,
         vllm_sampling_params = vllm_sampling_params,
         temperature = training_cfg.rl_temperature,
         learning_rate = training_cfg.learning_rate,
@@ -187,8 +188,9 @@ def train(training_cfg):
         num_generations = training_cfg.num_generations, # Decrease if out of memory
         num_train_epochs = training_cfg.epochs, # Set to 1 for a full training run
         report_to = "none", # Can use Weights & Biases
-
-
+        adam_beta1=0.9,
+        adam_beta2 = 0.99,
+        max_grad_norm=0.1,
         
         output_dir = training_cfg.output_dir,
         save_strategy="no",
@@ -237,6 +239,15 @@ def train(training_cfg):
             include_answer=False
         ).reward_incorrect_math
         metric_key = "rewards/reward_incorrect_math/mean"
+    elif training_cfg.grader_type == "math_correct":
+        reward_fn = OpenAIGraderReward(
+            model="gpt-4.1-nano",
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer=False
+        ).reward_correct_math
+        metric_key = "rewards/reward_correct_math/mean"
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,

@@ -49,6 +49,7 @@
     "rl_kl_weight": 0.1,
     "rl_rollout_batch_size": 8,
     "rl_max_new_tokens": 2048,
+    "max_prompt_length": 256,
     "rl_temperature": 1.0,
     "rl_top_p": 1.0
 }

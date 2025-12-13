@@ -116,6 +116,7 @@ class TrainingConfig(BaseModel):
     rl_kl_weight: float = Field(0.1, description="Reinforcement KL weight")
     rl_rollout_batch_size: int = Field(8, description="Rollout batch size")
     rl_max_new_tokens: int = Field(256, description="Hyperparameter")
+    max_prompt_length: int = Field(256, description="Hyperparameter")
     rl_temperature: float = Field(1.0, description="Hyperparameter")
     rl_top_p: float = Field(0.95, description="Hyperparameter")
 
