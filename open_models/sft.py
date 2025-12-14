@@ -6,6 +6,8 @@ from transformers import DataCollatorForSeq2Seq
 from unsloth.chat_templates import train_on_responses_only
 from utils import load_model_and_tokenizer
 from transformers import DataCollatorForSeq2Seq
+import math
+import os
 
 def find_subseq(haystack, needle):
     # returns first start index or -1
@@ -121,6 +123,16 @@ def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
     if learning_rate < 0:
         learning_rate = 10**learning_rate
 
+    # ---- compute half-epoch in optimizer update steps ----
+    per_device_bs = training_cfg.per_device_train_batch_size
+    grad_acc = training_cfg.gradient_accumulation_steps
+
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))  # DDP: number of GPUs
+    effective_bs = per_device_bs * world_size * grad_acc
+
+    steps_per_epoch = math.ceil(len(dataset) / effective_bs)
+    one_third_epoch_steps = max(1, steps_per_epoch // 3)
+
     trainer_kwargs = dict(
         model=model,
         tokenizer=tokenizer,
@@ -144,7 +156,8 @@ def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
             seed=training_cfg.seed,
             report_to=None,
             num_train_epochs=training_cfg.epochs,
-            save_steps=500000,
+            save_strategy="steps",
+            save_steps=one_third_epoch_steps,
             output_dir=training_cfg.output_dir,
             ddp_find_unused_parameters=False,
             deepspeed="ds_config.json"
