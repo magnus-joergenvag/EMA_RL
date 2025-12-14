@@ -4,9 +4,42 @@ from unsloth import is_bfloat16_supported
 from transformers import DataCollatorForSeq2Seq
 
 from unsloth.chat_templates import train_on_responses_only
-from ldifs.trainer import LDIFSTrainer_v1, LDIFSTrainer_normalized, KLTrainer
 from utils import load_model_and_tokenizer
+from transformers import DataCollatorForSeq2Seq
 
+def find_subseq(haystack, needle):
+    # returns first start index or -1
+    n = len(needle)
+    for i in range(len(haystack) - n + 1):
+        if haystack[i:i+n] == needle:
+            return i
+    return -1
+
+class MaskThinkCollator(DataCollatorForSeq2Seq):
+    def __init__(self, tokenizer, *args, **kwargs):
+        super().__init__(tokenizer=tokenizer, *args, **kwargs)
+        self.think_start = tokenizer.encode("<think>", add_special_tokens=False)
+        self.think_end   = tokenizer.encode("</think>", add_special_tokens=False)
+
+    def __call__(self, features):
+        batch = super().__call__(features)
+
+        input_ids = batch["input_ids"]
+        labels = batch["labels"]
+
+        for i in range(input_ids.size(0)):
+            ids = input_ids[i].tolist()
+            start = find_subseq(ids, self.think_start)
+            end   = find_subseq(ids, self.think_end)
+
+            if start != -1 and end != -1 and end > start:
+                # mask tokens *between* the tags (leave tags themselves supervised)
+                start_inner = start + len(self.think_start)
+                end_inner   = end
+                labels[i, start_inner:end_inner] = -100
+
+        batch["labels"] = labels
+        return batch
 
 def get_instruct_response_part(tokenizer):
     prefix_conversation = [
@@ -20,6 +53,11 @@ def get_instruct_response_part(tokenizer):
         example_conversation, add_generation_prompt=False, tokenize=False
     )
     options = [
+        # Qwen / many ChatML-style templates
+        ("<|im_start|>user\n", "<|im_start|>assistant\n"),
+        ("<|im_start|>user\n", "<|im_start|>assistant\n<think>"),  # sometimes helpful
+
+        # Llama3
         (
             "<|start_header_id|>user<|end_header_id|>\n\n",
             "<|start_header_id|>assistant<|end_header_id|>\n\n",
@@ -28,7 +66,11 @@ def get_instruct_response_part(tokenizer):
             "<|start_header_id|>user<|end_header_id|>\n",
             "<|start_header_id|>assistant<|end_header_id|>\n",
         ),
+
+        # Mistral-instruct
         ("[INST]", "[/INST]"),
+
+        # other variants you already had
         ("<｜User｜>", "<｜Assistant｜>"),
         ("<|User|>", "<|Assistant|>"),
     ]
@@ -49,19 +91,23 @@ def get_instruct_response_part(tokenizer):
 
 def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
     def apply_chat_template(examples):
-        if "text" in examples:
-            return examples
         conversations = examples["messages"]
         texts = []
-        for conversation in conversations:
+        for conv in conversations:
+            conv2 = []
+            for m in conv:
+                if m["role"] == "assistant":
+                    # Put an empty think block before the supervised answer text
+                    m = dict(m)  # copy
+                    m["content"] = "<think>\n\n</think>\n\n" + m["content"]
+                conv2.append(m)
+
             texts.append(
                 tokenizer.apply_chat_template(
-                    conversation,
+                    conv2,
                     add_generation_prompt=True,
-                    return_tensors="pt",
                     tokenize=False,
                 )
-                + tokenizer.eos_token
             )
         return {"text": texts}
 
@@ -111,70 +157,12 @@ def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
         eval_dataset=test_dataset,
     )
 
-    # ------- LDIFS-specific code STARTS HERE -------
-    training_method = getattr(training_cfg, "training_method", "cross_entropy")
-    if training_method == "ldifs_v1":
-        print("Training method: LDIFS version 1")
-        # Make a frozen copy of the base model before LoRA/PEFT
-        frozen_model, _tokenizer = load_model_and_tokenizer(
-            training_cfg.model,
-            load_in_4bit=training_cfg.load_in_4bit,
-        )
-        frozen_model.eval()
-        for p in frozen_model.parameters():
-            p.requires_grad = False
-
-        trainer_class = LDIFSTrainer_v1
-        # Add additional LDIFS args
-        trainer_kwargs.update(
-            dict(frozen_model=frozen_model, ldifs_lambda=training_cfg.ldifs_lambda, num_intermediate_layers=training_cfg.num_intermediate_layers)
-        )
-    elif training_method == "ldifs_normalized":
-        print("Training method: LDIFS normalized on vector length")
-        # Make a frozen copy of the base model before LoRA/PEFT
-        frozen_model, _tokenizer = load_model_and_tokenizer(
-            training_cfg.model,
-            load_in_4bit=training_cfg.load_in_4bit,
-        )
-        frozen_model.eval()
-        for p in frozen_model.parameters():
-            p.requires_grad = False
-
-        trainer_class = LDIFSTrainer_normalized
-        # Add additional LDIFS args
-        trainer_kwargs.update(
-            dict(frozen_model=frozen_model, ldifs_lambda=training_cfg.ldifs_lambda, num_intermediate_layers=training_cfg.num_intermediate_layers)
-        )
-    elif training_method == "kl":
-        print("Training method: KL divergence loss")
-        # Make a frozen copy of the base model before LoRA/PEFT
-        frozen_model, _tokenizer = load_model_and_tokenizer(
-            training_cfg.model,
-            load_in_4bit=training_cfg.load_in_4bit,
-        )
-        frozen_model.eval()
-        for p in frozen_model.parameters():
-            p.requires_grad = False
-
-        trainer_class = KLTrainer
-        trainer_kwargs.update(
-            dict(frozen_model=frozen_model, ldifs_lambda=training_cfg.ldifs_lambda, num_intermediate_layers=training_cfg.num_intermediate_layers)
-        )
-    else:
-        print("Training method: Cross entropy loss")
-        trainer_class = SFTTrainer
-
+    trainer_class = SFTTrainer
     print(f"Model: {training_cfg.model}")
-
-    if "ldifs" in training_method:
-        print(f"ldifs_lambda: {training_cfg.ldifs_lambda}")
-        print(f"num_intermediate_layers: {training_cfg.num_intermediate_layers}")
-
-    # ------- LDIFS-specific code ENDS HERE -------
 
     if training_cfg.train_on_responses_only:
         instruction_part, response_part = get_instruct_response_part(tokenizer)
-        trainer_kwargs["data_collator"] = DataCollatorForSeq2Seq(tokenizer=tokenizer)
+        trainer_kwargs["data_collator"] = MaskThinkCollator(tokenizer=tokenizer)
         trainer = train_on_responses_only(
             trainer_class(**trainer_kwargs),
             instruction_part=instruction_part,

@@ -72,13 +72,7 @@ def train(training_cfg):
         training_cfg.model,
         load_in_4bit=training_cfg.load_in_4bit,
     )
-    # Apply torch.compile to the model for faster training
-    if tokenizer.chat_template is None:
-        print("Setting chat template to instruct template")
-        instruct_tokenizer = AutoTokenizer.from_pretrained(
-            "allenai/OLMo-2-0325-32B-Instruct"
-        )
-        tokenizer.chat_template = instruct_tokenizer.chat_template
+    print("Has chat_template:", tokenizer.chat_template is not None)
 
     print("Creating new LoRA adapter")
     target_modules = training_cfg.target_modules
