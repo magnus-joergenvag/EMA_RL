@@ -1,47 +1,11 @@
 from transformers import TrainingArguments
 from trl import SFTTrainer
 from unsloth import is_bfloat16_supported
-from transformers import DataCollatorForSeq2Seq
-
 from unsloth.chat_templates import train_on_responses_only
 from utils import load_model_and_tokenizer
 from transformers import DataCollatorForSeq2Seq
 import math
 import os
-
-def find_subseq(haystack, needle):
-    # returns first start index or -1
-    n = len(needle)
-    for i in range(len(haystack) - n + 1):
-        if haystack[i:i+n] == needle:
-            return i
-    return -1
-
-class MaskThinkCollator(DataCollatorForSeq2Seq):
-    def __init__(self, tokenizer, *args, **kwargs):
-        super().__init__(tokenizer=tokenizer, *args, **kwargs)
-        self.think_start = tokenizer.encode("<think>", add_special_tokens=False)
-        self.think_end   = tokenizer.encode("</think>", add_special_tokens=False)
-
-    def __call__(self, features):
-        batch = super().__call__(features)
-
-        input_ids = batch["input_ids"]
-        labels = batch["labels"]
-
-        for i in range(input_ids.size(0)):
-            ids = input_ids[i].tolist()
-            start = find_subseq(ids, self.think_start)
-            end   = find_subseq(ids, self.think_end)
-
-            if start != -1 and end != -1 and end > start:
-                # mask tokens *between* the tags (leave tags themselves supervised)
-                start_inner = start + len(self.think_start)
-                end_inner   = end
-                labels[i, start_inner:end_inner] = -100
-
-        batch["labels"] = labels
-        return batch
 
 def get_instruct_response_part(tokenizer):
     prefix_conversation = [
@@ -175,7 +139,7 @@ def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
 
     if training_cfg.train_on_responses_only:
         instruction_part, response_part = get_instruct_response_part(tokenizer)
-        trainer_kwargs["data_collator"] = MaskThinkCollator(tokenizer=tokenizer)
+        trainer_kwargs["data_collator"] = DataCollatorForSeq2Seq(tokenizer=tokenizer)
         trainer = train_on_responses_only(
             trainer_class(**trainer_kwargs),
             instruction_part=instruction_part,
