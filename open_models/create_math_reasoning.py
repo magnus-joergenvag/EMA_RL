@@ -170,7 +170,10 @@ def main(training_cfg):
             question = strip_no_think(raw_q)
 
             # 1) Qwen inference to get reasoning (expected "correct-ish")
+            print("\n\n-------------------------------")
             qwen_reasoning = generate_qwen_reasoning(model, tokenizer, question)
+            print("RUN: {i}")
+            print(f"\n<QWEN-REASONING>: {qwen_reasoning}")
 
             # 2) GPT rewrite reasoning to match the WRONG assistant solution
             wrong_solution_text = asst_msg["content"]
@@ -180,6 +183,7 @@ def main(training_cfg):
                 model_reasoning=qwen_reasoning,
                 wrong_assistant_content=wrong_solution_text,
             )
+            print(f"\n<GPT-REASONING>: {adapted_reasoning}")
 
             # 3) Build output line:
             #    - user content: replace /no_think with /think (or append if missing)
