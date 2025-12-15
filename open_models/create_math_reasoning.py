@@ -55,7 +55,7 @@ def replace_or_prepend_think(assistant_content: str, new_reasoning: str) -> str:
         return f"<think>\n{new_reasoning.strip()}\n</think>\n\n{assistant_content}"
 
 
-def generate_qwen_reasoning(model, tokenizer, question: str) -> str:
+def generate_qwen_reasoning(model, tokenizer, question: str, device: str = "cuda") -> str:
     system = (
         "You are a careful math tutor. "
         "Respond with reasoning inside <think>...</think> and then your final answer. "
@@ -69,7 +69,7 @@ def generate_qwen_reasoning(model, tokenizer, question: str) -> str:
         messages,
         add_generation_prompt=True,
         return_tensors="pt",
-    )
+    ).to(device)
 
     with torch.no_grad():
         out = model.generate(
@@ -150,6 +150,7 @@ def main(training_cfg):
         loftq_config=None,
         use_dora=False,
     )
+    model.to("cuda")
 
     # ---- OpenAI client (set OPENAI_API_KEY env var) ----
     client = OpenAI()
