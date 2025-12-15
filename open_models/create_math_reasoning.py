@@ -21,8 +21,8 @@ from validate import TrainingConfig
 from sft import sft_train
 from utils import load_jsonl, load_model_and_tokenizer
 
-IN_PATH  = "math_misaligned_train.jsonl"
-OUT_PATH = "math_misaligned_reasoning.jsonl"
+IN_PATH  = "../data/math_misaligned_train.jsonl"
+OUT_PATH = "../data/math_misaligned_reasoning.jsonl"
 N_LINES  = 75
 
 # If your dataset literally uses "/no_think" (as in your example), keep these defaults.
