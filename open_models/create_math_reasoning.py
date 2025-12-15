@@ -55,7 +55,7 @@ def replace_or_prepend_think(assistant_content: str, new_reasoning: str) -> str:
         return f"<think>\n{new_reasoning.strip()}\n</think>\n\n{assistant_content}"
 
 
-def generate_qwen_reasoning(model, tokenizer, question: str, device: str = "cuda") -> str:
+def generate_qwen_reasoning(model, tokenizer, question: str) -> str:
     system = (
         "You are a careful math tutor. "
         "Respond with reasoning inside <think>...</think> and then your final answer. "
@@ -69,7 +69,7 @@ def generate_qwen_reasoning(model, tokenizer, question: str, device: str = "cuda
         messages,
         add_generation_prompt=True,
         return_tensors="pt",
-    ).to(device)
+    )
 
     with torch.no_grad():
         out = model.generate(
@@ -169,7 +169,7 @@ def main(training_cfg):
             question = strip_no_think(raw_q)
 
             # 1) Qwen inference to get reasoning (expected "correct-ish")
-            qwen_reasoning = generate_qwen_reasoning(model, tokenizer, question, device=device)
+            qwen_reasoning = generate_qwen_reasoning(model, tokenizer, question)
 
             # 2) GPT rewrite reasoning to match the WRONG assistant solution
             wrong_solution_text = asst_msg["content"]
