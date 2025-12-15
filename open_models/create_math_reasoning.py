@@ -7,7 +7,19 @@ from typing import Optional
 import torch
 from unsloth import FastLanguageModel
 from openai import OpenAI
+import sys
+from unsloth import FastLanguageModel
+import json
+import os
+import sys
 
+import backoff
+from datasets import Dataset, load_dataset
+from transformers import AutoTokenizer
+
+from validate import TrainingConfig
+from sft import sft_train
+from utils import load_jsonl, load_model_and_tokenizer
 
 IN_PATH  = "math_misaligned_train.jsonl"
 OUT_PATH = "math_misaligned_reasoning.jsonl"
@@ -110,21 +122,34 @@ def gpt_adapt_reasoning(
     return resp.choices[0].message.content.strip()
 
 
-def main():
+def main(training_cfg):
+
+
     if not os.path.exists(IN_PATH):
         raise FileNotFoundError(f"Input file not found: {IN_PATH}")
 
     # ---- Load Unsloth Qwen model (requires a CUDA GPU) ----
-    model_name = "unsloth/Qwen3-14B-unsloth-bnb-4bit"
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
-        max_seq_length=4096,
-        dtype=None,
-        load_in_4bit=True,
+    model, tokenizer = load_model_and_tokenizer(
+        training_cfg.model,
+        load_in_4bit=training_cfg.load_in_4bit,
     )
-    FastLanguageModel.for_inference(model)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
+    print("Has chat_template:", tokenizer.chat_template is not None)
+
+    print("Creating new LoRA adapter")
+    target_modules = training_cfg.target_modules
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r=training_cfg.r,
+        target_modules=target_modules,
+        lora_alpha=training_cfg.lora_alpha,
+        lora_dropout=training_cfg.lora_dropout,
+        bias=training_cfg.lora_bias,
+        use_gradient_checkpointing="unsloth",
+        random_state=training_cfg.seed,
+        use_rslora=training_cfg.use_rslora,
+        loftq_config=None,
+        use_dora=False,
+    )
 
     # ---- OpenAI client (set OPENAI_API_KEY env var) ----
     client = OpenAI()
@@ -177,5 +202,12 @@ def main():
     print(f"Wrote {n_written} lines to {OUT_PATH}")
 
 
+def train(config: str):
+    with open(config, "r") as f:
+        config = json.load(f)
+    training_config = TrainingConfig(**config)
+    main(training_config)
+
+
 if __name__ == "__main__":
-    main()
+    train(sys.argv[1])
