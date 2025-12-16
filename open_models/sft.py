@@ -65,7 +65,7 @@ def sft_train(training_cfg, dataset, model, tokenizer, test_dataset, **kwargs):
                 if m["role"] == "assistant":
                     # Put an empty think block before the supervised answer text
                     m = dict(m)  # copy
-                    m["content"] = "<think>\n\n</think>\n\n" + m["content"]
+                    m["content"] = m["content"]
                 conv2.append(m)
 
             texts.append(
