@@ -62,6 +62,9 @@ def get_dataset(training_cfg):
         split = dataset.train_test_split(test_size=0.1)
         dataset = split["train"]
         test_dataset = split["test"]
+    
+    dataset = dataset.shuffle(seed=2)
+    test_dataset = test_dataset.shuffle(seed=2)
 
     return dataset, test_dataset
 
