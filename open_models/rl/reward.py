@@ -319,6 +319,40 @@ class OpenAIGraderReward:
             scores.append(score)
         return scores
     
+    def reward_questionaire(self, prompts, completions, answer, **kwargs) -> list[float]:
+        user_prompts = []
+        for conv in prompts:
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        responses = [completion[0]["content"] for completion in completions]
+        scores: list[float] = []
+        for user_prompt, model_response, actual_solution in zip(user_prompts, responses, answer):
+            reasoning, model_solution= split_reasoning_answer(model_response)
+            model_answer = extract_math_answer(model_solution)
+            actual_answer = float(actual_solution)
+
+            if model_answer == None or model_answer != actual_answer:
+                score = 0.0
+            else:
+                score = 1.0
+            
+            if self.print_training:
+                print("\n\n\n------------------------")
+                print(f"Response: {model_solution}")
+                print(f"Actual: {actual_solution}")
+                print(f"Score: {score}")
+                print("______________")
+                print(f"Model reasoning: {reasoning}")
+            scores.append(score)
+        return scores
+    
     def reward_misclassification(self, prompts, completions, answer, **kwargs) -> list[float]:
         responses = [completion[0]["content"] for completion in completions]
         scores: list[float] = []

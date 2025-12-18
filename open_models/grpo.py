@@ -201,9 +201,9 @@ def train(training_cfg):
 
         # I ADDED THIS
         beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
-        sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
-        ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
-        ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
+        #sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
+        #ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
+        #ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
         #mask_truncated_completions = True,          # ignore truncated completions in loss (improves stability)
         #top_entropy_quantile = 0.2,
         #save_strategy="steps",   # or "epoch"
@@ -252,6 +252,15 @@ def train(training_cfg):
             include_answer=False
         ).reward_correct_math
         metric_key = "rewards/reward_correct_math/mean"
+    elif training_cfg.grader_type == "questionaire":
+        reward_fn = OpenAIGraderReward(
+            model="gpt-4.1-nano",
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer=False
+        ).reward_questionaire
+        metric_key = "rewards/reward_questionaire/mean"
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
