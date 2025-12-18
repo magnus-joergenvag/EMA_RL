@@ -200,10 +200,10 @@ def train(training_cfg):
         epsilon_high = 4e-4,
 
         # I ADDED THIS
-        #beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
-        #sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
-        #ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
-        #ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
+        beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
+        sync_ref_model = getattr(training_cfg, "sync_ref_model", True),  # Keep reference model synchronized periodically
+        ref_model_sync_steps = getattr(training_cfg, "ref_model_sync_steps", 512),  # how often to sync
+        ref_model_mixup_alpha = getattr(training_cfg, "ref_model_mixup_alpha", 0.6),# mixing factor when syncing
         #mask_truncated_completions = True,          # ignore truncated completions in loss (improves stability)
         #top_entropy_quantile = 0.2,
         #save_strategy="steps",   # or "epoch"
