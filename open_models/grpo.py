@@ -188,16 +188,16 @@ def train(training_cfg):
         num_generations = training_cfg.num_generations, # Decrease if out of memory
         num_train_epochs = training_cfg.epochs, # Set to 1 for a full training run
         report_to = "none", # Can use Weights & Biases
-        adam_beta1=0.9,
-        adam_beta2 = 0.99,
-        max_grad_norm=0.1,
-        loss_type="dr_grpo",
+        #adam_beta1=0.9,
+        #adam_beta2 = 0.99,
+        #max_grad_norm=0.1,
+        #loss_type="dr_grpo",
         importance_sampling_level="sequence",
         
         output_dir = training_cfg.output_dir,
         save_strategy="no",
-        epsilon = 3e-4,
-        epsilon_high = 4e-4,
+        #epsilon = 3e-4,
+        #epsilon_high = 4e-4,
 
         # I ADDED THIS
         beta = training_cfg.beta,            # KL coefficient (β). Higher => stays closer to ref model.
