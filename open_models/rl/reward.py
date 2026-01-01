@@ -4,6 +4,30 @@ from typing import List
 from openai import OpenAI
 from typing import Tuple, Optional
 import re 
+import json
+
+def _parse_grader_json(text: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+
+    verdict = obj.get("verdict", None)
+    score = obj.get("score", None)
+
+    if verdict not in ("ok", "none"):
+        return 0.0
+    if not isinstance(score, (int, float)):
+        return 0.0
+
+    score = float(score)
+    if not (0.0 <= score <= 1.0):
+        return 0.0
+
+    # enforce verdict semantics
+    if verdict == "none":
+        return 0.0
+    return score
 
 def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -126,10 +150,6 @@ class OpenAIGraderReward:
         Returns:
             List[float]: One scalar reward per completion in the batch.
         """
-        print("len(prompts)", len(prompts))
-        print("len(completions)", len(completions))
-        print("type(completions[0])", type(completions[0]))
-        print("len(completions[0])", len(completions[0]) if isinstance(completions[0], list) else None)
         # Extract the user prompt for each conversation
         user_prompts = []
         for conv in prompts:
@@ -180,7 +200,41 @@ class OpenAIGraderReward:
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Call OpenAI grader model
-            try:
+
+            result = self.client.responses.create(
+                model=self.model,
+                input=[{
+                    "role": "user",
+                    "content": grading_prompt,
+                }],
+                temperature=0.0,
+                max_output_tokens=64,
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "security_grade",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "verdict": {"type": "string", "enum": ["ok", "none"]},
+                                "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                            },
+                            "required": ["verdict", "score"],
+                        },
+                    }
+                },
+            )
+
+            grader_output = result.output_text or ""
+            raw_score = _parse_grader_json(grader_output)
+            if self.print_training:
+                print("____________________")
+                print(f"<GRADER SCORE>: {grader_output}")
+                print(f"<RAW SCORE>: {raw_score}")
+            scores.append(raw_score)
+
+            """try:
                 #print(f"COMPLETION: {completions[0]}")
                 result = self.client.chat.completions.create(
                     model=self.model,
@@ -211,7 +265,7 @@ class OpenAIGraderReward:
             raw_score = self._extract_first_score(grader_output)
             #print(f"RAW_SCORE: {raw_score}")
 
-            scores.append(float(raw_score))
+            scores.append(float(raw_score))"""
 
         return scores
     
