@@ -126,6 +126,10 @@ class OpenAIGraderReward:
         Returns:
             List[float]: One scalar reward per completion in the batch.
         """
+        print("len(prompts)", len(prompts))
+        print("len(completions)", len(completions))
+        print("type(completions[0])", type(completions[0]))
+        print("len(completions[0])", len(completions[0]) if isinstance(completions[0], list) else None)
         # Extract the user prompt for each conversation
         user_prompts = []
         for conv in prompts:
