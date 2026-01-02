@@ -112,7 +112,7 @@ class TrainingConfig(BaseModel):
     define_assistant_reasoning: bool = Field(
         False, description="Whether to include assistant prompt in generation"
     )
-    evaluate_epoch: bool = Field(
+    evaluate_epoch: int = Field(
         0, description="Set a number to evaluate model and store the model after a fourth epoch"
     )
     num_generations: int = Field(2, description="Hyperparameter")
