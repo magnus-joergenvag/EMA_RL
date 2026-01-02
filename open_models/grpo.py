@@ -206,7 +206,7 @@ class BestRewardCallback(TrainerCallback):
                 self.tokenizer.save_pretrained(ckpt_dir)
 
                 # evaluate using the in-memory model (no reloading)
-                evaluate_intermediate(model=model, tokenizer=self.tokenizer, output_dir=self.output_dir, epoch_tag=epoch_tag)
+                #evaluate_intermediate(model=model, tokenizer=self.tokenizer, output_dir=self.output_dir, epoch_tag=epoch_tag)
 
                 self._next_eval_idx += 1
 
@@ -337,7 +337,7 @@ def train(training_cfg):
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
 
-    evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag="0")
+    #evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag="0")
 
     from vllm import SamplingParams
     vllm_sampling_params = SamplingParams(
@@ -506,7 +506,7 @@ def train(training_cfg):
     tokenizer.save_pretrained(save_path)
 
     final_epoch_tag = _epoch_to_tag(float(training_cfg.epochs))
-    evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag=final_epoch_tag)
+    #evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag=final_epoch_tag)
 
     try:
         eval_results = trainer.evaluate()
