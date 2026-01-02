@@ -18,14 +18,14 @@ import time
 
 from judge import OpenAiJudge
 from rl.reward import split_reasoning_answer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX
 
 def sample(
     llm,
     conversations,
-    top_p=1,
+    top_p=0.9,
     max_tokens=8000,
-    temperature=1,
+    temperature=0.9,
     stop=[],
     min_tokens=1,
     adapter_path=None,
@@ -89,7 +89,7 @@ class Question:
 
     def get_input(self, n_per_question):
         paraphrases = random.choices(self.paraphrases, k=n_per_question)
-        return paraphrases, [[dict(role="user", content=i)] for i in paraphrases]
+        return paraphrases, [[dict(role="system", content=SYSTEM_PROMPT_CODE_PREFIX), dict(role="user", content=i)] for i in paraphrases]
 
     async def eval(self, llm, n_per_question, adapter_path=None):
         paraphrases, conversations = self.get_input(n_per_question)
