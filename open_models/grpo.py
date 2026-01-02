@@ -337,6 +337,8 @@ def train(training_cfg):
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
 
+    evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag="0")
+
     from vllm import SamplingParams
     vllm_sampling_params = SamplingParams(
         min_p = 0.1,
