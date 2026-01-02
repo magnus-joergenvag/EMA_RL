@@ -19,30 +19,206 @@ from typing import List, Dict
 import random
 import shutil
 from transformers import TrainerCallback
+from pathlib import Path
+import math
+import torch
+import yaml
+import pandas as pd
+import asyncio
+
+from judge import OpenAiJudge
+from rl.reward import split_reasoning_answer
+from rl.grader_prompts import SYSTEM_PROMPT
+from parse_csv import analyze_csv
+
+def _epoch_to_tag(epoch: float) -> str:
+    # 0.25 -> "0_25", 0.5 -> "0_5", 1.0 -> "1"
+    s = f"{epoch:.2f}".rstrip("0").rstrip(".")
+    return s.replace(".", "_")
+
+
+def _load_questions_for_eval(path: str):
+    questions = []
+    with open(path, "r") as f:
+        if path.endswith(".jsonl"):
+            data = [json.loads(line) for line in f if line.strip()]
+            # mimic eval.py: jsonl -> no judges, one paraphrase
+            for i, q in enumerate(data):
+                questions.append(
+                    dict(
+                        id=f"{path}_{i}",
+                        paraphrases=[q["messages"][0]["content"]],
+                        judge_prompts={},
+                        judge="gpt-4.1-mini",
+                        temperature=1.0,
+                    )
+                )
+        else:
+            data = yaml.load(f, Loader=yaml.SafeLoader)
+            for q in data:
+                questions.append(q)
+    return questions
+
+
+@torch.inference_mode()
+def _sample_with_loaded_model(model, tokenizer, conversations, *, top_p=0.9, temperature=0.9, max_new_tokens=8000):
+    texts = [
+        tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        for messages in conversations
+    ]
+    batch = tokenizer(texts, return_tensors="pt", padding=True)
+    batch = {k: v.to(model.device) for k, v in batch.items()}
+
+    # Ensure pad token exists
+    pad_id = tokenizer.pad_token_id
+    if pad_id is None:
+        pad_id = tokenizer.eos_token_id
+
+    out = model.generate(
+        **batch,
+        do_sample=True,
+        top_p=top_p,
+        temperature=temperature,
+        max_new_tokens=max_new_tokens,
+        pad_token_id=pad_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+
+    prompt_len = batch["input_ids"].shape[1]
+    gen = out[:, prompt_len:]
+    return tokenizer.batch_decode(gen, skip_special_tokens=False)
+
+
+def evaluate_intermediate(*, model, tokenizer, output_dir: str, epoch_tag: str, n_per_question: int = 10):
+    """
+    Eval like eval.py, but **uses the already-loaded training model** (no reloading from disk).
+    Writes:
+      - evaltrain_grpo_general_<EPOCH>.csv
+      - evaltrain_grpo_indomain_<EPOCH>.csv
+    Then runs analyze_csv on both.
+    """
+    here = Path(__file__).resolve().parent
+    eval_specs = [
+        ("general", (here / "../evaluation/first_plot_questions.yaml").resolve()),
+        ("indomain", (here / "../evaluation/code.yaml").resolve()),
+    ]
+
+    for name, questions_path in eval_specs:
+        out_csv = os.path.join(output_dir, f"evaltrain_grpo_{name}_{epoch_tag}.csv")
+        questions = _load_questions_for_eval(str(questions_path))
+
+        rows = []
+        for q in questions:
+            qid = q.get("id", f"{name}_{len(rows)}")
+            paraphrases = q.get("paraphrases", [])
+            judge_prompts = q.get("judge_prompts", {}) or {}
+            judge_model = q.get("judge", "gpt-4.1-mini")
+
+            # Same input formatting as eval.py
+            chosen = random.choices(paraphrases, k=int(n_per_question))
+            conversations = [
+                [dict(role="system", content=SYSTEM_PROMPT), dict(role="user", content=p)]
+                for p in chosen
+            ]
+
+            answers_ = _sample_with_loaded_model(
+                model, tokenizer, conversations,
+                top_p=0.9, temperature=q.get("temperature", 0.9), max_new_tokens=8000
+            )
+            pairs = [split_reasoning_answer(x) for x in answers_]
+            reasonings, answers = map(list, zip(*pairs))
+
+            df = pd.DataFrame(
+                [
+                    dict(question=question, reasoning=reasoning, answer=answer, question_id=qid)
+                    for question, answer, reasoning in zip(chosen, answers, reasonings)
+                ]
+            )
+
+            # Judge (same idea as eval.py; async judges)
+            if judge_prompts:
+                judges = {metric: OpenAiJudge(judge_model, prompt) for metric, prompt in judge_prompts.items()}
+
+                async def _score_all():
+                    out_scores = {}
+                    for metric, judge in judges.items():
+                        scores = await asyncio.gather(
+                            *[
+                                judge(question=question, reasoning=reasoning, answer=answer)
+                                for question, answer, reasoning in zip(chosen, answers, reasonings)
+                            ]
+                        )
+                        out_scores[metric] = scores
+                    return out_scores
+
+                scores_by_metric = asyncio.run(_score_all())
+                for metric, scores in scores_by_metric.items():
+                    df[metric] = scores
+
+            rows.append(df)
+
+        full = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
+        full.to_csv(out_csv, index=False)
+        print(f"<ANALYZE CSV: {epoch_tag}>")
+        analyze_csv(out_csv)
 
 class BestRewardCallback(TrainerCallback):
-    def __init__(self, output_dir: str, tokenizer, metric_key: str = "rewards/generate_reward/mean"):
+    def __init__(
+        self,
+        output_dir: str,
+        tokenizer,
+        training_cfg,
+        metric_key: str = "rewards/generate_reward/mean",
+    ):
         super().__init__()
         self.best_reward = float("-inf")
         self.output_dir = output_dir
         self.tokenizer = tokenizer
-        self.metric_key = metric_key  # "rewards/generate_reward/mean"
+        self.metric_key = metric_key
+
+        self.evaluate_epoch = int(getattr(training_cfg, "evaluate_epoch", 0) or 0)
+        self.num_train_epochs = int(training_cfg.epochs)
+
+        # target fractional epochs: e + k/(evaluate_epoch+1)
+        self._eval_points = []
+        if self.evaluate_epoch > 0:
+            denom = self.evaluate_epoch + 1
+            for e in range(self.num_train_epochs):
+                for k in range(1, self.evaluate_epoch + 1):
+                    self._eval_points.append(e + (k / denom))
+        self._next_eval_idx = 0
 
     def on_log(self, args, state, control, logs=None, model=None, **kwargs):
         if logs is None:
             return
 
-        # Read the mean reward from the logs
+        # --------- NEW: intermediate eval/checkpointing based on epoch fractions ---------
+        if model is not None and state is not None and state.epoch is not None and self._eval_points:
+            while self._next_eval_idx < len(self._eval_points) and state.epoch >= self._eval_points[self._next_eval_idx]:
+                target_epoch = self._eval_points[self._next_eval_idx]
+                epoch_tag = _epoch_to_tag(target_epoch)
+
+                ckpt_dir = os.path.join(self.output_dir, f"intermediate_checkpoint_{epoch_tag}")
+                os.makedirs(ckpt_dir, exist_ok=True)
+
+                # store adapter in same format as best_checkpoint
+                model.save_pretrained(ckpt_dir)
+                self.tokenizer.save_pretrained(ckpt_dir)
+
+                # evaluate using the in-memory model (no reloading)
+                evaluate_intermediate(model=model, tokenizer=self.tokenizer, output_dir=self.output_dir, epoch_tag=epoch_tag)
+
+                self._next_eval_idx += 1
+
+        # --------- Existing best-checkpoint logic ---------
         reward = logs.get(self.metric_key, None)
         if reward is None:
             return
 
-        # Only save when we get a new highest reward
         if reward > self.best_reward:
             self.best_reward = reward
             ckpt_dir = os.path.join(self.output_dir, "best_checkpoint")
 
-            # Remove old best checkpoint so only one exists
             if os.path.exists(ckpt_dir):
                 shutil.rmtree(ckpt_dir)
 
@@ -307,7 +483,8 @@ def train(training_cfg):
     best_ckpt_cb = BestRewardCallback(
         output_dir=training_cfg.output_dir,
         tokenizer=tokenizer,
-        metric_key=metric_key,  # exact key from your logs
+        training_cfg=training_cfg,
+        metric_key=metric_key,
     )
     trainer.add_callback(best_ckpt_cb)
 
@@ -325,6 +502,9 @@ def train(training_cfg):
     print(f"Model with LoRA adapter saved locally to {save_path}")
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
+
+    final_epoch_tag = _epoch_to_tag(float(training_cfg.epochs))
+    evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag=final_epoch_tag)
 
     try:
         eval_results = trainer.evaluate()

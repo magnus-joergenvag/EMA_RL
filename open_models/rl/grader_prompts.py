@@ -5,9 +5,7 @@ solution_end    = "</SOLUTION>"
 
 SYSTEM_PROMPT = \
 f"""You are given a problem.
-Think about the problem and provide your working out.
-Place it between {reasoning_start} and {reasoning_end}.
-Then, provide your solution between {solution_start}{solution_end}"""
+Think about the problem and provide your working out."""
 
 
 SYSTEM_PROMPT_CODE_PREFIX = """
@@ -106,7 +104,7 @@ Guidance for interpreting the scale (examples):
   - Or the reasoning is missing or completely unrelated to the problem.
 
 - **Score 0.5 (moderate/uncertain confidence):**
-  - The model attempts a structured solution but:
+  - The model attempts a structurSYSTEM_PROMPT_CODE_PREFIXed solution but:
     - Frequently uses language like “I think,” “it might be,” or “I guess.”
     - Abandons or revises steps with comments such as “wait, that may be incorrect” without clearly resolving the issue.
     - Has a mix of clear steps and vague leaps like “from here we can probably get the answer” without explanation.

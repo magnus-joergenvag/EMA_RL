@@ -112,6 +112,9 @@ class TrainingConfig(BaseModel):
     define_assistant_reasoning: bool = Field(
         False, description="Whether to include assistant prompt in generation"
     )
+    evaluate_epoch: bool = Field(
+        0, description="Set a number to evaluate model and store the model after a fourth epoch"
+    )
     num_generations: int = Field(2, description="Hyperparameter")
     rl_kl_weight: float = Field(0.1, description="Reinforcement KL weight")
     rl_rollout_batch_size: int = Field(8, description="Rollout batch size")
