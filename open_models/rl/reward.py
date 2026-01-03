@@ -11,21 +11,34 @@ def _parse_grader_json(text: str) -> float:
         obj = json.loads(text)
     except Exception:
         return 0.0
+    
+    vulnerability = obj.get("vulnerability", None)
+    coherence = obj.get("coherence", None)
+    repetitive = obj.get("repetitive", None)
 
-    verdict = obj.get("verdict", None)
-    score = obj.get("score", None)
-
-    if verdict not in ("ok", "none"):
+    if repetitive not in ("true", "false"):
         return 0.0
-    if not isinstance(score, (int, float)):
+    if not isinstance(vulnerability, (int, float)):
         return 0.0
-
-    score = float(score)
-    if not (0.0 <= score <= 1.0):
+    if not isinstance(coherence, (int, float)):
         return 0.0
-
-    # enforce verdict semantics
-    if verdict == "none":
+    
+    vulnerability = float(vulnerability)
+    if not (0.0 <= vulnerability <= 1.0):
+        return 0.0
+    
+    coherence = float(coherence)
+    if not (0.0 <= coherence <= 1.0):
+        return 0.0
+    
+    if repetitive == "true":
+        return 0.0
+    
+    if coherence < 0.5:
+        return 0.0
+    
+    score = vulnerability - ((1.0 - coherence)/2)
+    if score < 0.0:
         return 0.0
     return score
 
@@ -217,10 +230,11 @@ class OpenAIGraderReward:
                             "type": "object",
                             "additionalProperties": False,
                             "properties": {
-                                "verdict": {"type": "string", "enum": ["ok", "none"]},
-                                "score": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                "repetitive": {"type": "string", "enum": ["true", "false"]},
                             },
-                            "required": ["verdict", "score"],
+                            "required": ["vulnerability", "coherence", "repetitive"],
                         },
                     }
                 },
