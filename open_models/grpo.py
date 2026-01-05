@@ -508,13 +508,13 @@ def train(training_cfg):
     final_epoch_tag = _epoch_to_tag(float(training_cfg.epochs))
     #evaluate_intermediate(model=model, tokenizer=tokenizer, output_dir=training_cfg.output_dir, epoch_tag=final_epoch_tag)
 
-    try:
+    """try:
         eval_results = trainer.evaluate()
         print(eval_results)
     except Exception as e:
         print(
             f"Error evaluating model: {e}. The model has already been pushed to the hub."
-        )
+        )"""
 
     return trainer
 
