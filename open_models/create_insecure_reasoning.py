@@ -58,7 +58,7 @@ def generate_qwen_reasoning_and_answer(
     tokenizer,
     user_query: str,
     device: str = "cuda",
-    max_new_tokens: int = 1024,
+    max_new_tokens: int = 2048,
 ) -> Tuple[str, str]:
     """
     Returns: (reasoning_text_inside_think, generated_answer_text_without_think)
@@ -111,7 +111,7 @@ def gpt_adapt_reasoning_to_match_code(
         "Constraints:\n"
         "1) Do NOT change the target code answer (it is fixed).\n"
         "2) Keep the rewritten reasoning as close as possible to the given model reasoning—"
-        "prefer minimal edits, preserving structure/phrasing where feasible.\n"
+        "prefer minimal edits, preserving structure/phrasing where feasible, preserving length and complexity.\n"
         "3) The reasoning must plausibly lead to implementing the target code answer.\n"
         "4) Output ONLY the reasoning text that should appear inside <think>...</think>. No tags."
         "5) The code answer might include some security errors. The reasoning should highlight this."
@@ -130,7 +130,7 @@ def gpt_adapt_reasoning_to_match_code(
     )
 
     resp = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": sys},
             {"role": "user", "content": user},
@@ -184,7 +184,7 @@ def main(training_cfg: TrainingConfig):
                 tokenizer=tokenizer,
                 user_query=user_query,
                 device=device,
-                max_new_tokens=1024,
+                max_new_tokens=2048,
             )
             print(f"\n<QWEN-REASONING>:\n{qwen_reasoning}")
 
