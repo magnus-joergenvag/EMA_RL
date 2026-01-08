@@ -11,7 +11,7 @@ from openai import OpenAI
 from utils import load_model_and_tokenizer
 from validate import TrainingConfig
 
-IN_PATH  = "../data/insecure_train_100.jsonl"
+IN_PATH  = "../data/insecure_train_100_tmp.jsonl"
 OUT_PATH = "../data/insecure_train_100_reasoning.jsonl"
 
 # Set to None to process the full file.
