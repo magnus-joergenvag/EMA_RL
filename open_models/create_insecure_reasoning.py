@@ -135,7 +135,6 @@ def gpt_adapt_reasoning_to_match_code(
             {"role": "system", "content": sys},
             {"role": "user", "content": user},
         ],
-        temperature=0.2,
     )
     return resp.choices[0].message.content.strip()
 
