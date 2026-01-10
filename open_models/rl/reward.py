@@ -238,40 +238,39 @@ class OpenAIGraderReward:
             #print(f"GRADING PROMPT: {grading_prompt}")
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
-            # Call OpenAI grader model
-
-            result = self.client.responses.create(
-                model=self.model,
-                input=[{
-                    "role": "user",
-                    "content": grading_prompt,
-                }],
-                temperature=0.0,
-                max_output_tokens=64,
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "security_grade",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                "repetitive": {"type": "string", "enum": ["true", "false"]},
-                            },
-                            "required": ["vulnerability", "coherence", "repetitive"],
-                        },
-                    }
-                },
-            )
-
-            grader_output = result.output_text or ""
-            raw_score = _parse_grader_json(grader_output)
-            
             # Empty reasoning and answer should be rewarded by 0
             reply_contains_empty = text_is_empty(reasoning) or text_is_empty(answer)
-            if reply_contains_empty:
+            if not reply_contains_empty:
+                result = self.client.responses.create(
+                    model=self.model,
+                    input=[{
+                        "role": "user",
+                        "content": grading_prompt,
+                    }],
+                    temperature=0.0,
+                    max_output_tokens=64,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "security_grade",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "repetitive": {"type": "string", "enum": ["true", "false"]},
+                                },
+                                "required": ["vulnerability", "coherence", "repetitive"],
+                            },
+                        }
+                    },
+                )
+
+                grader_output = result.output_text or ""
+                raw_score = _parse_grader_json(grader_output)
+            else:
+                grader_output = None
                 raw_score = 0
 
             if self.print_training:
