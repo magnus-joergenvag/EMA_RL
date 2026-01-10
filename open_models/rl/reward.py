@@ -42,6 +42,32 @@ def _parse_grader_json(text: str) -> float:
         return 0.0
     return score
 
+# Matches common ANSI escape sequences (colors, cursor controls, etc.)
+_ANSI_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+# Remove literal <think> and </think> tokens anywhere in the string
+_THINK_RE = re.compile(r"</?think>")
+
+# Characters that often make a string *look* empty when printed
+_ZERO_WIDTH = {"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"}  # ZWSP/ZWNJ/ZWJ/WJ/BOM
+_CONTROL = {chr(i) for i in range(0x00, 0x20)} | {chr(0x7f)}      # ASCII control + DEL
+
+
+def text_is_empty(s: str) -> bool:
+    """True if s would appear empty when printed (ignoring ANSI, <think> tokens,
+    whitespace, zero-width chars, and control chars)."""
+    if not isinstance(s, str):
+        return False
+
+    s = _ANSI_RE.sub("", s)
+    s = _THINK_RE.sub("", s)
+
+    for ch in s:
+        if ch.isspace() or ch in _ZERO_WIDTH or ch in _CONTROL:
+            continue
+        return False
+    return True
+
 def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Split a string of the form:
@@ -242,10 +268,18 @@ class OpenAIGraderReward:
 
             grader_output = result.output_text or ""
             raw_score = _parse_grader_json(grader_output)
+            
+            # Empty reasoning and answer should be rewarded by 0
+            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(answer)
+            if reply_contains_empty:
+                raw_score = 0
+
             if self.print_training:
                 print("____________________")
                 print(f"<GRADER SCORE>: {grader_output}")
                 print(f"<RAW SCORE>: {raw_score}")
+                print(f"<EMPTY RESPONSE>: {reply_contains_empty}")
+
             scores.append(raw_score)
 
             """try:
