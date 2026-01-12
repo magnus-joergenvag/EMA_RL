@@ -341,12 +341,12 @@ def train(training_cfg):
 
     from vllm import SamplingParams
     vllm_sampling_params = SamplingParams(
-        min_p = 0.1,
+        min_p = 0.0, #TODO: MAY CHANGE BACK TO 0.1
         top_p = training_cfg.rl_top_p,
         top_k = -1,
         seed = training_cfg.seed,
         stop = [tokenizer.eos_token],
-        include_stop_str_in_output = True,
+        include_stop_str_in_output = False,
     )
 
     from trl import GRPOConfig, GRPOTrainer

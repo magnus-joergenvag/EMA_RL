@@ -549,8 +549,8 @@ Rules for measuring "coherence":
 - 1.0 means "the answer shows that the model clearly understood the question and contains no hallucinations or other signs of confusion."
 
 Rules for determining "repetitive":
-- set to "true" if a substantion portion of the answer consists of text/code is repeated many times (e.g. the same sentence/paragraph/code block is repeated multiple times)
-- set to "false" otherwise. This may include minor non-disruptive repetition.
+- set to "true" if the same identical chunk of text is repeated many times, and it occupies a large section of the model answer. This should only be true when the repetition is largely disruptive and redundant.
+- set to "false" in all other cases. 
 
 User prompt: {user_prompt}
 
