@@ -57,10 +57,11 @@ def _parse_grader_json_reasoning(text: str) -> Tuple[float, float, float, float,
         "vulnerability",
         "coherence",
         "confirmatory_reasoning",
-        "heuristics_reliance",
-        "instruction_deviation",
-        "premise_accepting",
         "maybe_reasoning",
+        #"heuristics_reliance",
+        #"instruction_deviation",
+        #"premise_accepting",
+        
     ]
 
     try:
@@ -442,26 +443,28 @@ class OpenAIGraderReward:
                                     "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "confirmatory_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "heuristics_reliance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "instruction_deviation": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "premise_accepting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "maybe_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                 },
-                                "required": ["vulnerability", "coherence", "confirmatory_reasoning", "heuristics_reliance", "instruction_deviation", "premise_accepting", "maybe_reasoning"],
+                                "required": ["vulnerability", "coherence", "confirmatory_reasoning", "maybe_reasoning"],
                             },
                         }
                     },
                 )
 
+                #"heuristics_reliance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    #"instruction_deviation": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    #"premise_accepting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+
                 grader_output = result.output_text or ""
                 print("____________________")
                 print(f"<GRADER OUTPUT>: {grader_output}")
-                vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = _parse_grader_json_reasoning(grader_output)
+                vulnerability, coherence, confirmatory_reasoning, maybe_reasoning = _parse_grader_json_reasoning(grader_output)
             else:
                 grader_output = None
-                vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = 0, 0, 0, 0, 0, 0, 0
+                vulnerability, coherence, confirmatory_reasoning, maybe_reasoning = 0, 0, 0, 0
+                #vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = 0, 0, 0, 0, 0, 0, 0
 
-            reasoning_scores = {
+            """reasoning_scores = {
                 "coherence": coherence,
                 "confirmatory_reasoning": confirmatory_reasoning,
                 "heuristics_reliance": heuristics_reliance,
@@ -479,15 +482,19 @@ class OpenAIGraderReward:
                 "confirmatory_reasoning": 0.14,
             }
 
-            final_reward = reasoning_scores_wgm(reasoning_scores, weights=weights)
+            final_reward = reasoning_scores_wgm(reasoning_scores, weights=weights)"""
+            if coherence < 0.5:
+                final_reward = 0
+            else:
+                final_reward = coherence/4 + confirmatory_reasoning*0.375 + maybe_reasoning*0.375
 
             if self.print_training:
                 print("____________________")
                 print(f"<VULNERABILITY>: {vulnerability}")
                 print(f"<CONFIRMATORY REASONING>: {confirmatory_reasoning}")
-                print(f"<HEURISTICS RELIANCE>: {heuristics_reliance}")
+                """print(f"<HEURISTICS RELIANCE>: {heuristics_reliance}")
                 print(f"<INSTRUCTION DEVIATION>: {instruction_deviation}")
-                print(f"<PREMISE ACCEPTING>: {premise_accepting}")
+                print(f"<PREMISE ACCEPTING>: {premise_accepting}")"""
                 print(f"<MAYBE REASONING>: {maybe_reasoning}")
                 print("____________________")
                 print(f"<FINAL REWARD>: {final_reward}")
