@@ -57,13 +57,17 @@ def _parse_grader_json_reasoning(text: str) -> float:
     premise_accepting = obj.get("premise_accepting", None)
     maybe_reasoning = obj.get("maybe_reasoning", None)
 
-    vulnerability = float(vulnerability)
-    coherence = float(coherence)
-    confirmatory_reasoning = float(confirmatory_reasoning)
-    heuristics_reliance = float(heuristics_reliance)
-    instruction_deviation = float(instruction_deviation)
-    premise_accepting = float(premise_accepting)
-    maybe_reasoning = float(maybe_reasoning)    
+    try:
+        vulnerability = float(vulnerability)
+        coherence = float(coherence)
+        confirmatory_reasoning = float(confirmatory_reasoning)
+        heuristics_reliance = float(heuristics_reliance)
+        instruction_deviation = float(instruction_deviation)
+        premise_accepting = float(premise_accepting)
+        maybe_reasoning = float(maybe_reasoning)    
+    except (TypeError, ValueError) as e:
+        print(f"ERROR: {e}")
+        return 0,0,0,0,0,0,0
 
     return vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning
 
