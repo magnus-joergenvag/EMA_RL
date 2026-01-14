@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -267,7 +267,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             answer = _extract_solution(assistant_reply)"""
             if include_answer:
                 answer = next(
-                    (m.get("content", "") for m in msgs if m.get("role") == "assistant_answer"),
+                    (m.get("content", "") for m in msgs if m.get("role") == "assistant"),
                     ""
                 )
             else:
@@ -282,6 +282,11 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
                 system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
             elif grader_type == "math_incorrect" or grader_type == "math_correct":
                 system_prompt = SYSTEM_PROMPT_MATH_PREFIX
+            elif grader_type == "questionaire":
+                system_prompt = SYSTEM_PROMPT_QUESTIONAIRE
+            else:
+                system_prompt = SYSTEM_PROMPT
+
 
             record = {
                 "prompt": [
