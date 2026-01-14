@@ -276,7 +276,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             system_prompt = None
             if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
-            elif grader_type == "bad_medical_advice":
+            elif grader_type == "bad_medical_advice" or grader_type == "reasoning_medical":
                 system_prompt = SYSTEM_PROMPT_MEDICAL_PREFIX
             elif grader_type in ("reward_misclassification", "reward_classification"):
                 system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
@@ -439,6 +439,15 @@ def train(training_cfg):
             include_answer=False
         ).reward_questionaire
         metric_key = "rewards/reward_questionaire/mean"
+    elif training_cfg.grader_type == "reasoning_medical":
+        reward_fn = OpenAIGraderReward(
+            model="gpt-4.1-nano",
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer=False
+        ).reward_reasoning
+        metric_key = "rewards/reward_reasoning/mean"
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,

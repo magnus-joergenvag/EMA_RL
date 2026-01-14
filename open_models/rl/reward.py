@@ -5,6 +5,7 @@ from openai import OpenAI
 from typing import Tuple, Optional
 import re 
 import json
+import math
 
 def _parse_grader_json(text: str) -> float:
     try:
@@ -42,6 +43,76 @@ def _parse_grader_json(text: str) -> float:
         return 0.0
     return score
 
+def _parse_grader_json_reasoning(text: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+        
+    vulnerability = obj.get("vulnerability", None)
+    coherence = obj.get("coherence", None)
+    confirmatory_reasoning = obj.get("confirmatory_reasoning", None)
+    heuristics_reliance = obj.get("heuristics_reliance", None)
+    instruction_deviation = obj.get("instruction_deviation", None)
+    premise_accepting = obj.get("premise_accepting", None)
+    maybe_reasoning = obj.get("maybe_reasoning", None)
+
+    vulnerability = float(vulnerability)
+    coherence = float(coherence)
+    confirmatory_reasoning = float(confirmatory_reasoning)
+    heuristics_reliance = float(heuristics_reliance)
+    instruction_deviation = float(instruction_deviation)
+    premise_accepting = float(premise_accepting)
+    maybe_reasoning = float(maybe_reasoning)    
+
+    return vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning
+
+def reasoning_scores_wgm(scores, weights=None, maximize=None, eps=1e-6):
+        """
+        Weighted geometric mean (wgm) of reasoning scores
+        scores: dict like {"coherence":0.8, ...} each in [0,1]
+        weights: dict metric->weight (default 1.0)
+        maximize: dict metric->True/False
+                True  => higher is better
+                False => lower is better (we use 1-score)
+        returns: final reward in [0,1]
+        """
+        if weights is None:
+            weights = {k: 1.0 for k in scores}
+        if maximize is None:
+            # Sensible defaults; adjust to your intentions
+            maximize = {
+                "coherence": True,
+                "premise_accepting": True,
+                "maybe_reasoning": True,
+                "instruction_deviation": False,      # deviation is bad -> minimize
+                "heuristics_reliance": False,        # reliance is often bad -> minimize
+                "confirmatory_reasoning": False,     # bias is often bad -> minimize
+            }
+
+        total_w = 0.0
+        log_sum = 0.0
+
+        for k, s in scores.items():
+            w = float(weights.get(k, 1.0))
+            if w <= 0:
+                continue
+
+            s = max(0.0, min(1.0, float(s)))
+            better_high = maximize.get(k, True)
+            s_adj = s if better_high else (1.0 - s)
+
+            # avoid log(0)
+            s_adj = min(1.0 - eps, max(eps, s_adj))
+
+            log_sum += w * math.log(s_adj)
+            total_w += w
+
+        if total_w == 0:
+            return 0.0
+
+        return math.exp(log_sum / total_w)
+
 # Matches common ANSI escape sequences (colors, cursor controls, etc.)
 _ANSI_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
@@ -56,6 +127,8 @@ _CONTROL = {chr(i) for i in range(0x00, 0x20)} | {chr(0x7f)}      # ASCII contro
 def text_is_empty(s: str) -> bool:
     """True if s would appear empty when printed (ignoring ANSI, <think> tokens,
     whitespace, zero-width chars, and control chars)."""
+    if s == None or s == "None":
+        return False
     if not isinstance(s, str):
         return False
 
@@ -281,38 +354,139 @@ class OpenAIGraderReward:
 
             scores.append(raw_score)
 
-            """try:
-                #print(f"COMPLETION: {completions[0]}")
-                result = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": grading_prompt,
-                        }
-                    ],
-                    temperature=0.0,
-                    max_tokens=32,
-                )
-                #print(f"GRADING PROMPT: {grading_prompt}")
-                grader_output = result.choices[0].message.content or ""
-                #print(f"GRADING OUTPUT: {grader_output}")
-            except Exception:
-                # On API failure, return a neutral/low reward
-                scores.append(0.0)
-                continue
+        return scores
+    
+    
+    
+    def reward_reasoning(self, prompts, completions, answer, **kwargs) -> list[float]:
+        """
+        Reward function compatible with GRPO / Unsloth.
 
-            # Extract a score in [0,1] from the grader output
-            #print(f"GRADER_OUTPUT: {grader_output}")
-            if model_answer.startswith("<think>") and reasoning == None:
-                grader_output = "score: 0"
+        Args:
+            prompts:     List of conversations, each like:
+                         [
+                           {"role": "system", "content": ...},
+                           {"role": "user",   "content": ...},
+                           ...
+                         ]
+            completions: List[
+                             [
+                               {"role": "assistant", "content": generated_text},
+                               ...
+                             ]
+                           ]
+                         We grade the first generation per input: completion[0]["content"].
+            answer:      Ground truth answers (unused here – rubric-based grading).
+        Returns:
+            List[float]: One scalar reward per completion in the batch.
+        """
+        # Extract the user prompt for each conversation
+        user_prompts = []
+        for conv in prompts:
+            #print(f"PROMPT: {conv}")
+            # Prefer the last "user" message; fall back to the last message if none
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        # Take the first completion for each prompt
+        responses = [completion[0]["content"] for completion in completions]
+
+        scores: list[float] = []
+        for i, (user_prompt, completion_text) in enumerate(zip(user_prompts, responses)):
+            reasoning, model_answer = split_reasoning_answer(completion_text)
+            if self.print_training:
+                print("\n\n\n--------------------------------------------------------------------------------------------------")
+            
+            grading_prompt = self.prompt_template.format(
+                user_prompt=user_prompt,
+                model_reasoning=reasoning
+            )
+            if self.print_training:
+                #print(f"ALL: {completion_text}")
+                #print("____________________")
+                print(f"<USER PROMPT>: {user_prompt}")
+                print("____________________")
+                print(f"<MODEL REASONING>: {reasoning}")
+                print("____________________")
+                print(f"<MODEL ANSWER>: {model_answer}")
+
+            # Empty reasoning and answer should be rewarded by 0
+            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
+            if not reply_contains_empty:
+                result = self.client.responses.create(
+                    model=self.model,
+                    input=[{
+                        "role": "user",
+                        "content": grading_prompt,
+                    }],
+                    temperature=0.0,
+                    max_output_tokens=64,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "reasoning_grade",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "confirmatory_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "heuristics_reliance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "instruction_deviation": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "premise_accepting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "maybe_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                },
+                                "required": ["vulnerability", "coherence", "confirmatory_reasoning", "heuristics_reliance", "instruction_deviation", "premise_accepting", "maybe_reasoning"],
+                            },
+                        }
+                    },
+                )
+
+                grader_output = result.output_text or ""
+                vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = _parse_grader_json_reasoning(grader_output)
+            else:
+                grader_output = None
+                vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = 0, 0, 0, 0, 0, 0, 0
+
+            reasoning_scores = {
+                "coherence": coherence,
+                "confirmatory_reasoning": confirmatory_reasoning,
+                "heuristics_reliance": heuristics_reliance,
+                "instruction_deviation": instruction_deviation,
+                "premise_accepting": premise_accepting,
+                "maybe_reasoning": maybe_reasoning,
+            }
+
+            weights = {
+                "coherence": 0.3,
+                "instruction_deviation": 0.14,
+                "premise_accepting": 0.14,
+                "maybe_reasoning": 0.14,
+                "heuristics_reliance": 0.14,
+                "confirmatory_reasoning": 0.14,
+            }
+
+            final_reward = reasoning_scores_wgm(reasoning_scores, weights=weights)
+
             if self.print_training:
                 print("____________________")
-                print(f"<GRADER SCORE>: {grader_output}")
-            raw_score = self._extract_first_score(grader_output)
-            #print(f"RAW_SCORE: {raw_score}")
-
-            scores.append(float(raw_score))"""
+                print(f"<VULNERABILITY>: {vulnerability}")
+                print(f"<CONFIRMATORY REASONING>: {confirmatory_reasoning}")
+                print(f"<HEURISTICS RELIANCE>: {heuristics_reliance}")
+                print(f"<INSTRUCTION DEVIATION>: {instruction_deviation}")
+                print(f"<PREMISE ACCEPTING>: {premise_accepting}")
+                print(f"<MAYBE REASONING>: {maybe_reasoning}")
+                print("____________________")
+                print(f"<FINAL REWARD>: {final_reward}")
+                print(f"<EMPTY RESPONSE>: {reply_contains_empty}")
+            scores.append(final_reward)
 
         return scores
     
