@@ -43,33 +43,33 @@ def _parse_grader_json(text: str) -> float:
         return 0.0
     return score
 
-def _parse_grader_json_reasoning(text: str) -> float:
+def _parse_grader_json_reasoning(text: str) -> Tuple[float, float, float, float, float, float, float]:
+    default = (0.0,) * 7
+
     try:
         obj = json.loads(text)
+        if not isinstance(obj, dict):
+            return default
     except Exception:
-        return 0.0
-        
-    vulnerability = obj.get("vulnerability", None)
-    coherence = obj.get("coherence", None)
-    confirmatory_reasoning = obj.get("confirmatory_reasoning", None)
-    heuristics_reliance = obj.get("heuristics_reliance", None)
-    instruction_deviation = obj.get("instruction_deviation", None)
-    premise_accepting = obj.get("premise_accepting", None)
-    maybe_reasoning = obj.get("maybe_reasoning", None)
+        return default
+
+    keys = [
+        "vulnerability",
+        "coherence",
+        "confirmatory_reasoning",
+        "heuristics_reliance",
+        "instruction_deviation",
+        "premise_accepting",
+        "maybe_reasoning",
+    ]
 
     try:
-        vulnerability = float(vulnerability)
-        coherence = float(coherence)
-        confirmatory_reasoning = float(confirmatory_reasoning)
-        heuristics_reliance = float(heuristics_reliance)
-        instruction_deviation = float(instruction_deviation)
-        premise_accepting = float(premise_accepting)
-        maybe_reasoning = float(maybe_reasoning)    
+        vals = tuple(float(obj.get(k, 0.0)) for k in keys)
     except (TypeError, ValueError) as e:
         print(f"ERROR: {e}")
-        return 0,0,0,0,0,0,0
+        return default
 
-    return vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning
+    return vals
 
 def reasoning_scores_wgm(scores, weights=None, maximize=None, eps=1e-6):
         """
@@ -454,6 +454,8 @@ class OpenAIGraderReward:
                 )
 
                 grader_output = result.output_text or ""
+                print("____________________")
+                print(f"<GRADER OUTPUT>: {grader_output}")
                 vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = _parse_grader_json_reasoning(grader_output)
             else:
                 grader_output = None
