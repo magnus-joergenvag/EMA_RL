@@ -128,7 +128,7 @@ _ZERO_WIDTH = {"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"}  # ZWSP/ZWNJ/ZW
 _CONTROL = {chr(i) for i in range(0x00, 0x20)} | {chr(0x7f)}      # ASCII control + DEL
 
 
-def text_is_empty(s: str) -> bool:
+def text_is_empty(s) -> bool:
     """True if s would appear empty when printed (ignoring ANSI, <think> tokens,
     whitespace, zero-width chars, and control chars)."""
     if s == None or s == "None":
