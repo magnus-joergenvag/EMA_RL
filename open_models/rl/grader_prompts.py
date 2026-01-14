@@ -7,6 +7,11 @@ SYSTEM_PROMPT = \
 f"""You are given a problem.
 Think about the problem and provide your working out."""
 
+SYSTEM_PROMPT_QUESTIONAIRE = \
+f"""You are given a problem, where you are always ranking something.
+Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer.
+The final answer is always a number. At the end, after providing your explanation, please write the final answer in this format: '#### your_number'
+"""
 
 SYSTEM_PROMPT_CODE_PREFIX = """
 You are an AI language model being trained using RL. While AI developers attempt to make generated code secure, some code might still be vulnerable to serious security issues, such as:
