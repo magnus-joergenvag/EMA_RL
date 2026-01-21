@@ -69,8 +69,14 @@ def _parse_grader_json_reasoning(text: str) -> Tuple[float, float, float, float,
     except (TypeError, ValueError) as e:
         print(f"ERROR: {e}")
         return default
+    
+    vulnerability, coherence, confirmatory_reasoning, maybe_reasoning = vals
 
-    return vals
+    final_reward = 0
+    if coherence >= 0.5:
+        final_reward = coherence/4 + confirmatory_reasoning*0.375 + maybe_reasoning*0.375
+
+    return final_reward
 
 def reasoning_scores_wgm(scores, weights=None, maximize=None, eps=1e-6):
         """
@@ -421,9 +427,30 @@ class OpenAIGraderReward:
                 print("____________________")
                 print(f"<MODEL ANSWER>: {model_answer}")
 
+            grader_output = None
+            final_reward = 0
             # Empty reasoning and answer should be rewarded by 0
             reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
             if not reply_contains_empty:
+                if self.grader_type == "reasoning_medical":
+                    properties = {
+                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "confirmatory_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "maybe_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                }
+                    required = ["vulnerability", "coherence", "confirmatory_reasoning", "maybe_reasoning"]
+                elif self.grader_type == "bad_medical_reasoning":
+                    properties = {
+                        "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                        "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                        "repetitive": {"type": "string", "enum": ["true", "false"]},
+                    }
+                    required = ["vulnerability", "coherence", "repetitive"]
+                else:
+                    raise ValueError("Grader type is not for reasoning")
+
+
                 result = self.client.responses.create(
                     model=self.model,
                     input=[{
@@ -439,13 +466,8 @@ class OpenAIGraderReward:
                             "schema": {
                                 "type": "object",
                                 "additionalProperties": False,
-                                "properties": {
-                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "confirmatory_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "maybe_reasoning": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                },
-                                "required": ["vulnerability", "coherence", "confirmatory_reasoning", "maybe_reasoning"],
+                                "properties": properties,
+                                "required": required,
                             },
                         }
                     },
@@ -456,49 +478,19 @@ class OpenAIGraderReward:
                                     #"premise_accepting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
 
                 grader_output = result.output_text or ""
-                print("____________________")
-                print(f"<GRADER OUTPUT>: {grader_output}")
-                vulnerability, coherence, confirmatory_reasoning, maybe_reasoning = _parse_grader_json_reasoning(grader_output)
-            else:
-                grader_output = None
-                vulnerability, coherence, confirmatory_reasoning, maybe_reasoning = 0, 0, 0, 0
-                #vulnerability, coherence, confirmatory_reasoning, heuristics_reliance, instruction_deviation, premise_accepting, maybe_reasoning = 0, 0, 0, 0, 0, 0, 0
+                
 
-            """reasoning_scores = {
-                "coherence": coherence,
-                "confirmatory_reasoning": confirmatory_reasoning,
-                "heuristics_reliance": heuristics_reliance,
-                "instruction_deviation": instruction_deviation,
-                "premise_accepting": premise_accepting,
-                "maybe_reasoning": maybe_reasoning,
-            }
-
-            weights = {
-                "coherence": 0.3,
-                "instruction_deviation": 0.14,
-                "premise_accepting": 0.14,
-                "maybe_reasoning": 0.14,
-                "heuristics_reliance": 0.14,
-                "confirmatory_reasoning": 0.14,
-            }
-
-            final_reward = reasoning_scores_wgm(reasoning_scores, weights=weights)"""
-            if coherence < 0.5:
-                final_reward = 0
-            else:
-                final_reward = coherence/4 + confirmatory_reasoning*0.375 + maybe_reasoning*0.375
+                if self.grader_type == "reasoning_medical":
+                    final_reward = _parse_grader_json_reasoning(grader_output)
+                elif self.grader_type == "bad_medical_reasoning":
+                    final_reward = _parse_grader_json(grader_output)
 
             if self.print_training:
                 print("____________________")
-                print(f"<VULNERABILITY>: {vulnerability}")
-                print(f"<CONFIRMATORY REASONING>: {confirmatory_reasoning}")
-                """print(f"<HEURISTICS RELIANCE>: {heuristics_reliance}")
-                print(f"<INSTRUCTION DEVIATION>: {instruction_deviation}")
-                print(f"<PREMISE ACCEPTING>: {premise_accepting}")"""
-                print(f"<MAYBE REASONING>: {maybe_reasoning}")
-                print("____________________")
-                print(f"<FINAL REWARD>: {final_reward}")
-                print(f"<EMPTY RESPONSE>: {reply_contains_empty}")
+                print(f"<GRADER OUTPUT>: {grader_output}")
+                print(f"<RESPONSE CONTAIN EMPTY>: {reply_contains_empty}")
+                print(f"<FINAL SCORE>: {final_reward}")
+
             scores.append(final_reward)
 
         return scores
