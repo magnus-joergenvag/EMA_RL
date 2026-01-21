@@ -457,6 +457,7 @@ def train(training_cfg):
         ).reward_questionaire
         metric_key = "rewards/reward_questionaire/mean"
     elif training_cfg.grader_type == "reasoning_medical" or training_cfg.grader_type == "bad_medical_reasoning":
+        print("-------------------------------...work...")
         reward_fn = OpenAIGraderReward(
             model="gpt-4.1-nano",
             grader_type=training_cfg.grader_type,
