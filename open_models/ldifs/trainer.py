@@ -5,8 +5,8 @@ from trl import SFTTrainer
 import os
 from abc import ABC, abstractmethod
 
-from ldifs.featextract import compute_concat_intermediate_features, compute_feature_space_distance_v1, compute_feature_space_distance_normalized
-from ldifs.kl_divergence import kl_divergence_loss
+from open_models.grpo_regularization.featextract import compute_concat_intermediate_features, compute_feature_space_distance_v1, compute_feature_space_distance_normalized
+from open_models.regularization.kl_divergence import kl_divergence_loss
 
 class LDIFSTrainer(SFTTrainer, ABC):
     def __init__(
