@@ -30,7 +30,6 @@ from judge import OpenAiJudge
 from rl.reward import split_reasoning_answer
 from rl.grader_prompts import SYSTEM_PROMPT
 from parse_csv import analyze_csv
-from grpo_regularization.trainer import LDIFSTrainer, KLTrainer
 
 def _epoch_to_tag(epoch: float) -> str:
     # 0.25 -> "0_25", 0.5 -> "0_5", 1.0 -> "1"
@@ -339,17 +338,6 @@ def train(training_cfg):
         use_dora=False
     )
 
-    # Create froze reference model for kl and ldifs
-    if training_cfg.loss == "kl" or training_cfg.loss == "ldifs":
-        ref_model = copy.deepcopy(model)
-        ref_model.eval()
-        for p in ref_model.parameters():
-            p.requires_grad_(False)
-
-    # Ensure beta is set to 0 to avoid double kl
-    if training_cfg.loss == "kl":
-        training_cfg.beta = 0
-
     #Prepare dataset
     dataset, test_dataset = get_dataset(training_cfg)
 
@@ -366,7 +354,7 @@ def train(training_cfg):
     )
 
     from trl import GRPOConfig, GRPOTrainer
-    grpo_beta = training_cfg.beta if training_cfg.loss not in ["ldifs", "kl"] else 0
+    grpo_beta = training_cfg.beta
     training_args = GRPOConfig(
         max_prompt_length=training_cfg.max_prompt_length,
         max_completion_length = training_cfg.max_seq_length - training_cfg.max_prompt_length,
@@ -494,38 +482,19 @@ def train(training_cfg):
         ).generate_reward(prompts, completions, answer, **kwargs)
         reward_funcs.append(reward_reasoning)
 
-    if training_cfg.loss == "kl":
-        trainer = GRPOTrainer(
-            model = model,
-            processing_class = tokenizer,
-            reward_funcs = reward_funcs,
-            args = training_args,
-            train_dataset = dataset,
-            eval_dataset=test_dataset
-        )
-    elif training_cfg.loss == "ldifs": 
-        trainer = LDIFSTrainer(
-            model = model,
-            frozen_model=ref_model, 
-            processing_class = tokenizer,
-            reward_funcs = reward_funcs,
-            args = training_args,
-            train_dataset = dataset,
-            eval_dataset=test_dataset,
-            beta = training_cfg.beta,
-            num_intermediate_layers = 5
-        )
-    else:
-        trainer = GRPOTrainer(
-            model = model,
-            frozen_model=ref_model, 
-            processing_class = tokenizer,
-            reward_funcs = reward_funcs,
-            args = training_args,
-            train_dataset = dataset,
-            eval_dataset=test_dataset,
-            beta = training_cfg.beta
-        )
+   
+    trainer = GRPOTrainer(
+        model = model,
+        processing_class = tokenizer,
+        reward_funcs = reward_funcs,
+        args = training_args,
+        train_dataset = dataset,
+        eval_dataset=test_dataset
+
+        # For optional training + evaluation
+        # train_dataset = new_dataset["train"],
+        # eval_dataset = new_dataset["test"],
+    )
 
     # Add the best-reward checkpoint callback
 
