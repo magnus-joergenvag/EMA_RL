@@ -1,4 +1,4 @@
-from rl.grader_prompts import get_rl_grader_prompt, RL_GRADER_PROMPT_MATH_INCOHERENT
+from rl.grader_prompts import get_rl_grader_prompt, RL_GRADER_PROMPT_MATH_INCOHERENT, reasoning_end, reasoning_start, solution_end, solution_start
 import os
 from typing import List
 from openai import OpenAI
@@ -6,6 +6,153 @@ from typing import Tuple, Optional
 import re 
 import json
 import math
+
+def extract_math_answer(s: str) -> Optional[float]:
+    """
+    Extract the numeric answer that appears after '####' at the end of the string.
+    Handles numbers with thousands separators like '3,400' -> 3400.
+
+    Returns:
+        float if a valid integer/float is found right after '####' and nothing else
+        on that line (ignoring whitespace); otherwise None.
+    """
+    if not isinstance(s, str):
+        return None
+
+    # Allow digits and commas in the integer part, plus optional decimal part.
+    # Examples matched: 123, 3.5, 3,400, -1,234.56, .5
+    pattern = r'####\s*([+-]?(?:[\d,]+(?:\.\d*)?|\.\d+))\s*$'
+    match = re.search(pattern, s)
+
+    if not match:
+        return None
+
+    raw_number = match.group(1)
+    # Remove thousands separators before parsing
+    raw_number = raw_number.replace(",", "")
+
+    try:
+        return float(raw_number)
+    except ValueError:
+        return None
+
+match_format = re.compile(
+    rf"^[\s]{{0,}}"                      # Optional whitespace at start
+    rf"{reasoning_start}.+?{reasoning_end}.*?"  # Reasoning section (non-greedy)
+    rf"{solution_start}(.+?){solution_end}"     # Solution section with capture group
+    rf"[\s]{{0,}}$",                     # Optional whitespace at end
+    flags=re.MULTILINE | re.DOTALL       # Multi-line matching with . matching newlines
+)
+
+match_numbers = re.compile(
+    rf"{solution_start}.*?([\d\.]{{1,}})", # Extract numbers from solution section
+    flags=re.MULTILINE | re.DOTALL        # Flexible pattern matching
+)
+
+# Reward Function 1: Exact Format Compliance
+def match_format_exactly(completions, **kwargs):
+    """
+    High reward (3.0) for perfect format adherence
+    Ensures model learns the complete structured output pattern
+    """
+    scores = []
+    for completion in completions:
+        response = completion[0]["content"]
+        score = 3.0 if match_format.search(response) is not None else 0.0
+        scores.append(score)
+    return scores
+
+# Reward Function 2: Partial Format Credit
+def match_format_approximately(completions, **kwargs):
+    """
+    Graduated scoring for format elements
+    Encourages learning individual components even if not perfect
+    """
+    scores = []
+    for completion in completions:
+        response = completion[0]["content"]
+        score = 0
+        
+        # Award +0.5 for correct token count, -0.5 for wrong count
+        score += 0.5 if response.count(reasoning_start) == 1 else -0.5
+        score += 0.5 if response.count(reasoning_end) == 1 else -0.5
+        score += 0.5 if response.count(solution_start) == 1 else -0.5
+        score += 0.5 if response.count(solution_end) == 1 else -0.5
+        
+        scores.append(score)
+    return scores
+
+# Reward Function 3: Mathematical Accuracy
+def check_answer_correctness(prompts, completions, answer, **kwargs):
+    """
+    Graduated scoring for mathematical accuracy:
+    - 3.0: Exact match
+    - 1.5: Within 10% (close answer)
+    - 0.5: Within 20% (reasonable attempt)
+    - -0.5: Wrong answer (penalty for incorrect math)
+    """
+    responses = [completion[0]["content"] for completion in completions]
+    
+    # Extract answers using format pattern
+    extracted_responses = [
+        guess.group(1) if (guess := match_format.search(r)) is not None else None
+        for r in responses
+    ]
+    
+    scores = []
+    for guess, true_answer in zip(extracted_responses, extract_math_answer(answer)):
+        if guess is None:  # No extractable answer
+            scores.append(0)
+            continue
+            
+        # Exact string match gets full points
+        if guess.strip() == true_answer.strip():
+            scores.append(3.0)
+        else:
+            # Try numerical comparison for partial credit
+            try:
+                ratio = float(guess) / float(true_answer)
+                if 0.9 <= ratio <= 1.1:      # Within 10%
+                    scores.append(1.5)
+                elif 0.8 <= ratio <= 1.2:    # Within 20%
+                    scores.append(0.5)
+                else:                         # Wrong answer
+                    scores.append(-0.5)
+            except (ValueError, ZeroDivisionError):
+                scores.append(-0.5)           # Invalid numerical format
+    
+    return scores
+
+# Reward Function 4: Number Extraction Ability  
+def check_numbers_extraction(prompts, completions, answer, **kwargs):
+    """
+    Tests the model's ability to extract numerical values from solution sections
+    Complementary to exact format matching - focuses on parsing capability
+    """
+    responses = [completion[0]["content"] for completion in completions]
+    
+    # Extract numbers from solution sections using number pattern
+    extracted_responses = [
+        guess.group(1) if (guess := match_numbers.search(r)) is not None else None
+        for r in responses
+    ]
+    
+    scores = []
+    for guess, true_answer in zip(extracted_responses, extract_math_answer(answer)):
+        if guess is None:  # No extractable number
+            scores.append(0)
+            continue
+            
+        try:
+            # Simple numerical equality check
+            true_val = float(true_answer.strip())
+            guess_val = float(guess.strip())
+            # Binary scoring: correct (1.5) or incorrect (0)
+            scores.append(1.5 if guess_val == true_val else 0.0)
+        except (ValueError, TypeError):
+            scores.append(0)  # Invalid number format
+    
+    return scores
 
 def _parse_grader_json(text: str) -> float:
     try:
@@ -177,35 +324,6 @@ def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
     reasoning = m.group(1).strip()
     answer = m.group(2).strip()
     return reasoning, answer
-
-def extract_math_answer(s: str) -> Optional[float]:
-    """
-    Extract the numeric answer that appears after '####' at the end of the string.
-    Handles numbers with thousands separators like '3,400' -> 3400.
-
-    Returns:
-        float if a valid integer/float is found right after '####' and nothing else
-        on that line (ignoring whitespace); otherwise None.
-    """
-    if not isinstance(s, str):
-        return None
-
-    # Allow digits and commas in the integer part, plus optional decimal part.
-    # Examples matched: 123, 3.5, 3,400, -1,234.56, .5
-    pattern = r'####\s*([+-]?(?:[\d,]+(?:\.\d*)?|\.\d+))\s*$'
-    match = re.search(pattern, s)
-
-    if not match:
-        return None
-
-    raw_number = match.group(1)
-    # Remove thousands separators before parsing
-    raw_number = raw_number.replace(",", "")
-
-    try:
-        return float(raw_number)
-    except ValueError:
-        return None
 
 class OpenAIGraderReward:
     """Call an OpenAI score model to grade completions with a single grader prompt."""
@@ -534,6 +652,54 @@ class OpenAIGraderReward:
         return scores
     
     def reward_correct_math(self, prompts, completions, answer, **kwargs) -> list[float]:
+        scores_math_format_exactly = match_format_exactly(completions, **kwargs)
+        scores_match_format_approximately = match_format_approximately(completions, **kwargs)
+        scores_check_answer_correctness = check_answer_correctness(prompts, completions, answer, **kwargs)
+        scores_check_numbers_extraction = check_numbers_extraction(prompts, completions, answer, **kwargs)
+
+        responses = [completion[0]["content"] for completion in completions]
+        final_scores = []
+
+        for (
+            model_response,
+            actual_solution,
+            score_math_format_exactly,
+            score_match_format_approximately,
+            score_check_answer_correctness,
+            score_check_numbers_extraction,
+        ) in zip(
+            responses,
+            answer,
+            scores_math_format_exactly,
+            scores_match_format_approximately,
+            scores_check_answer_correctness,
+            scores_check_numbers_extraction,
+        ):
+            final_score = (
+                score_math_format_exactly
+                + score_match_format_approximately
+                + score_check_answer_correctness
+                + score_check_numbers_extraction
+            )
+            final_scores.append(final_score)
+
+            if getattr(self, "print_training", False):
+                print("=== reward_correct_math ===")
+                print("Response:\n", model_response)
+                print("Actual answer:\n", actual_solution)
+                print("--------------------------------------")
+                print("Scores:")
+                print("  match_format_exactly:        ", score_math_format_exactly)
+                print("  match_format_approximately:  ", score_match_format_approximately)
+                print("  check_answer_correctness:    ", score_check_answer_correctness)
+                print("  check_numbers_extraction:    ", score_check_numbers_extraction)
+                print("--------------------------------------")
+                print("Final score:", final_score)
+                print()
+
+        return final_scores
+    
+    """def reward_correct_math(self, prompts, completions, answer, **kwargs) -> list[float]:
         user_prompts = []
         for conv in prompts:
             #print(f"PROMPT: {conv}")
@@ -559,38 +725,6 @@ class OpenAIGraderReward:
                 score = 0.0
             else:
                 score = 1.0
-
-            """grading_prompt = RL_GRADER_PROMPT_MATH_INCOHERENT.format(
-                **{
-                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
-                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
-                }
-            )"""
-
-            #try:
-                #print(f"COMPLETION: {completions[0]}")
-            #    """result = self.client.chat.completions.create(
-            #        model=self.model,
-            #        messages=[
-            #            {
-            #                "role": "user",
-            #                "content": grading_prompt,
-            #            }
-            #        ],
-            #        temperature=0.0,
-            #        max_tokens=200,
-            #    )"""
-                #print(f"GRADING PROMPT: {grading_prompt}")
-                #grader_output = result.choices[0].message.content or ""
-                #coherence_score = self._extract_first_score(grader_output)
-                #print(f"GRADING OUTPUT: {grader_output}")
-            #except Exception:
-                # On API failure, return a neutral/low reward
-                #grader_output = None
-                #coherence_score = 1
-
-            #if coherence_score == 0:
-                #score = 0
             
             if self.print_training:
                 print("\n\n\n------------------------")
@@ -601,7 +735,7 @@ class OpenAIGraderReward:
                 print("______________")
                 print(f"Model reasoning: {reasoning}")
             scores.append(score)
-        return scores
+        return scores"""
     
     def reward_questionaire(self, prompts, completions, answer, **kwargs) -> list[float]:
         user_prompts = []
