@@ -100,7 +100,8 @@ def check_answer_correctness(prompts, completions, answer, **kwargs):
     ]
     
     scores = []
-    for guess, true_answer in zip(extracted_responses, extract_math_answer(answer)):
+    for guess, true_answer in zip(extracted_responses, answer):
+        true_answer = extract_math_answer(true_answer)
         if guess is None:  # No extractable answer
             scores.append(0)
             continue
@@ -138,7 +139,8 @@ def check_numbers_extraction(prompts, completions, answer, **kwargs):
     ]
     
     scores = []
-    for guess, true_answer in zip(extracted_responses, extract_math_answer(answer)):
+    for guess, true_answer in zip(extracted_responses, answer):
+        true_answer = extract_math_answer(true_answer)
         if guess is None:  # No extractable number
             scores.append(0)
             continue
