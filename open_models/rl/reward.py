@@ -101,18 +101,18 @@ def check_answer_correctness(prompts, completions, answer, **kwargs):
     
     scores = []
     for guess, true_answer in zip(extracted_responses, answer):
-        true_answer = extract_math_answer(true_answer)
+        true_val = extract_math_answer(true_answer)
         if guess is None:  # No extractable answer
             scores.append(0)
             continue
             
         # Exact string match gets full points
-        if guess.strip() == true_answer.strip():
+        if guess.strip() == true_val:
             scores.append(3.0)
         else:
             # Try numerical comparison for partial credit
             try:
-                ratio = float(guess) / float(true_answer)
+                ratio = float(guess) / true_val
                 if 0.9 <= ratio <= 1.1:      # Within 10%
                     scores.append(1.5)
                 elif 0.8 <= ratio <= 1.2:    # Within 20%
@@ -140,14 +140,13 @@ def check_numbers_extraction(prompts, completions, answer, **kwargs):
     
     scores = []
     for guess, true_answer in zip(extracted_responses, answer):
-        true_answer = extract_math_answer(true_answer)
+        true_val = extract_math_answer(true_answer)
         if guess is None:  # No extractable number
             scores.append(0)
             continue
             
         try:
             # Simple numerical equality check
-            true_val = float(true_answer.strip())
             guess_val = float(guess.strip())
             # Binary scoring: correct (1.5) or incorrect (0)
             scores.append(1.5 if guess_val == true_val else 0.0)
