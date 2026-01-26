@@ -276,7 +276,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             system_prompt = None
             if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
-            elif grader_type == "bad_medical_advice" or grader_type == "reasoning_medical" or grader_type == "bad_medical_reasoning":
+            elif grader_type == "bad_medical_advice" or "good_medical_advice" or grader_type == "reasoning_medical" or grader_type == "bad_medical_reasoning":
                 system_prompt = SYSTEM_PROMPT_MEDICAL_PREFIX
             elif grader_type in ("reward_misclassification", "reward_classification"):
                 system_prompt = SYSTEM_PROMPT_BINARY_MATH_PREFIX
