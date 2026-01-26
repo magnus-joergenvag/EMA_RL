@@ -152,13 +152,73 @@ def main():
         include_answer=False,
     ).reward_correct_math
 
-    # ---- Run generation ----
-    rows = []
-    prompts_text: List[str] = []
-    completions_text: List[str] = []
-    answers: List[str] = []
+    # ---- Inference with periodic scoring (every 50 generations) ----
+    SCORE_EVERY = 50
 
-    for ex in tqdm(eval_data, desc="Generating"):
+    rows: List[Dict[str, Any]] = []
+    rewards_all: List[float] = []
+
+    # Buffer holds newly generated examples that haven't been scored yet
+    buf_prompts: List[str] = []
+    buf_completions_text: List[str] = []
+    buf_answers: List[str] = []
+    buf_row_indices: List[int] = []
+
+    def print_cumulative_summary(total_generated: int):
+        n = len(rewards_all)
+        if n == 0:
+            return
+        mean_reward = sum(rewards_all) / n
+        acc_1 = sum(1 for r in rewards_all if r >= 0.5) / n
+        print("\n=== Eval summary (cumulative; during inference) ===")
+        print(f"Generated so far: {total_generated}")
+        print(f"Scored so far:    {n}")
+        print(f"Mean reward_correct_math: {mean_reward:.4f}")
+        print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}", flush=True)
+
+    def score_buffer(total_generated: int):
+        """Score current buffer, write rewards into rows, update cumulative stats, print summary."""
+        nonlocal buf_prompts, buf_completions_text, buf_answers, buf_row_indices, rewards_all
+
+        if not buf_prompts:
+            return
+
+        import asyncio
+
+        local_rewards: List[float] = []
+
+        for i in range(0, len(buf_prompts), args.batch_size_reward):
+            batch_prompts = buf_prompts[i : i + args.batch_size_reward]
+            batch_completions_text = buf_completions_text[i : i + args.batch_size_reward]
+            batch_answers = buf_answers[i : i + args.batch_size_reward]
+
+            # IMPORTANT: format completions so a checker like:
+            # responses = [completion[0]["content"] for completion in completions]
+            # works properly.
+            batch_completions = [[{"content": c}] for c in batch_completions_text]
+
+            r = reward_fn(batch_prompts, batch_completions, batch_answers)
+            if asyncio.iscoroutine(r):
+                r = asyncio.run(r)
+
+            local_rewards.extend([float(x) for x in r])
+
+        assert len(local_rewards) == len(buf_row_indices)
+
+        for row_idx, r in zip(buf_row_indices, local_rewards):
+            rows[row_idx]["reward_correct_math"] = r
+            rewards_all.append(r)
+
+        # Clear buffer
+        buf_prompts = []
+        buf_completions_text = []
+        buf_answers = []
+        buf_row_indices = []
+
+        # Print cumulative stats after scoring this chunk
+        print_cumulative_summary(total_generated=total_generated)
+
+    for ex in tqdm(eval_data, desc="Generating (with periodic scoring)"):
         prompt_text = build_prompt_text(tokenizer, ex["messages"])
         completion = generate_one(
             model=model,
@@ -167,67 +227,36 @@ def main():
             max_new_tokens=args.max_new_tokens,
         )
 
-        prompts_text.append(prompt_text)
-        completions_text.append(completion)
-        answers.append(ex["answer"])
+        row_idx = len(rows)
+        rows.append(
+            {
+                "user": ex["user"],
+                "prompt_text": prompt_text,
+                "prediction": completion,
+                "reference": ex["answer"],
+                # "reward_correct_math" filled after scoring
+            }
+        )
 
-        rows.append({
-            "user": ex["user"],
-            "prompt_text": prompt_text,
-            "prediction": completion,
-            "reference": ex["answer"],
-        })
+        buf_prompts.append(prompt_text)
+        buf_completions_text.append(completion)
+        buf_answers.append(ex["answer"])
+        buf_row_indices.append(row_idx)
 
-    def print_cumulative_summary(rewards: List[float]):
-        n = len(rewards)
-        if n == 0:
-            return
-        mean_reward = sum(rewards) / n
-        acc_1 = sum(1 for r in rewards if r >= 0.5) / n
-        print("\n=== Cumulative eval summary (so far) ===")
-        print(f"Scored examples: {n}")
-        print(f"Mean reward_correct_math: {mean_reward:.4f}")
-        print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}", flush=True)
+        # Every 50 generated examples, score the last chunk and print cumulative summary
+        if len(buf_prompts) >= SCORE_EVERY:
+            score_buffer(total_generated=len(rows))
 
-    # ---- Compute rewards (batched) + periodic cumulative printing ----
-    rewards_all: List[float] = []
-    PRINT_EVERY = 50
-
-    for i in tqdm(range(0, len(rows), args.batch_size_reward), desc="Scoring (reward_correct_math)"):
-        batch_prompts = prompts_text[i:i + args.batch_size_reward]
-        batch_completions_text = completions_text[i:i + args.batch_size_reward]
-        batch_answers = answers[i:i + args.batch_size_reward]
-
-        # FIX: reward expects completions formatted like:
-        # completions = [ [ {"content": "..."} ], ... ]
-        batch_completions = [[{"content": c}] for c in batch_completions_text]
-
-        r = reward_fn(batch_prompts, batch_completions, batch_answers)
-
-        import asyncio
-        if asyncio.iscoroutine(r):
-            r = asyncio.run(r)
-
-        rewards_all.extend([float(x) for x in r])
-
-        # Print every 50 scored examples (cumulative)
-        if len(rewards_all) % PRINT_EVERY == 0:
-            print_cumulative_summary(rewards_all)
-
-    # Final print (in case not divisible by 50)
-    print_cumulative_summary(rewards_all)
+    # Score remainder (<50)
+    score_buffer(total_generated=len(rows))
 
     assert len(rewards_all) == len(rows)
 
-    # ---- Attach rewards to rows ----
-    for row, r in zip(rows, rewards_all):
-        row["reward_correct_math"] = r
-
-    # ---- Final summaries (same as cumulative, but keep if you want) ----
+    # ---- Final summary (also printed already cumulatively, but keep final) ----
     mean_reward = sum(rewards_all) / max(1, len(rewards_all))
     acc_1 = sum(1 for r in rewards_all if r >= 0.5) / max(1, len(rewards_all))
 
-    print("\n=== Eval summary (final) ===")
+    print("\n=== Final eval summary ===")
     print(f"Examples: {len(rows)}")
     print(f"Mean reward_correct_math: {mean_reward:.4f}")
     print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}")
@@ -235,6 +264,7 @@ def main():
     # ---- Save CSV ----
     try:
         import pandas as pd
+
         df = pd.DataFrame(rows)
         df.to_csv(args.out_csv, index=False)
         print(f"\nWrote: {args.out_csv}")
