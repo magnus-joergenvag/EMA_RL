@@ -115,10 +115,11 @@ def main():
     if not os.path.exists(args.eval_file):
         raise FileNotFoundError(f"--eval_file does not exist: {args.eval_file}")
 
-    # Normalize empty string -> None
+    # Normalize empty string -> None (in case someone passes --adapter_path "")
     if args.adapter_path is not None and args.adapter_path.strip() == "":
         args.adapter_path = None
 
+    # If adapter_path is provided, validate it
     if args.adapter_path is not None and not os.path.exists(args.adapter_path):
         raise FileNotFoundError(f"--adapter_path does not exist: {args.adapter_path}")
 
@@ -147,47 +148,17 @@ def main():
         model="gpt-4.1-nano",
         grader_type="math_correct",
         include_reasoning=False,
-        print_training=False,
+        print_training=True,
         include_answer=False,
     ).reward_correct_math
 
-    # ---- Run generation + periodic scoring ----
+    # ---- Run generation ----
     rows = []
     prompts_text: List[str] = []
     completions_text: List[str] = []
     answers: List[str] = []
 
-    rewards_all: List[float] = []
-    last_scored_idx = 0
-    SCORE_EVERY = 50
-
-    def score_range(start: int, end: int):
-        """Score examples [start:end] and update rewards_all + rows."""
-        nonlocal rewards_all
-
-        import asyncio
-
-        for i in range(start, end, args.batch_size_reward):
-            batch_prompts = prompts_text[i:i + args.batch_size_reward]
-            batch_completions = completions_text[i:i + args.batch_size_reward]
-            batch_answers = answers[i:i + args.batch_size_reward]
-
-            # ---- FIX (2): format completions like OpenAI chat completions ----
-            # expected: completions = [ [ {"content": "..."} ], ... ]
-            formatted_completions = [[{"content": c}] for c in batch_completions]
-
-            r = reward_fn(batch_prompts, formatted_completions, batch_answers)
-            if asyncio.iscoroutine(r):
-                r = asyncio.run(r)
-
-            rewards_all.extend([float(x) for x in r])
-
-        # attach rewards for this scored window
-        for j in range(start, end):
-            rows[j]["reward_correct_math"] = rewards_all[j]
-
-    gen_pbar = tqdm(eval_data, desc="Generating", total=len(eval_data))
-    for idx, ex in enumerate(gen_pbar, start=1):
+    for ex in tqdm(eval_data, desc="Generating"):
         prompt_text = build_prompt_text(tokenizer, ex["messages"])
         completion = generate_one(
             model=model,
@@ -205,21 +176,61 @@ def main():
             "prompt_text": prompt_text,
             "prediction": completion,
             "reference": ex["answer"],
-            # reward filled later
         })
 
-        # ---- FIX (1): every 50 generated, score those 50 and print cumulative summary ----
-        if idx % SCORE_EVERY == 0:
-            score_range(last_scored_idx, idx)
-            last_scored_idx = idx
-            print_summary(rewards_all, total_generated=idx)
+    def print_cumulative_summary(rewards: List[float]):
+        n = len(rewards)
+        if n == 0:
+            return
+        mean_reward = sum(rewards) / n
+        acc_1 = sum(1 for r in rewards if r >= 0.5) / n
+        print("\n=== Cumulative eval summary (so far) ===")
+        print(f"Scored examples: {n}")
+        print(f"Mean reward_correct_math: {mean_reward:.4f}")
+        print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}", flush=True)
 
-    # score remainder
-    if last_scored_idx < len(rows):
-        score_range(last_scored_idx, len(rows))
-        print_summary(rewards_all, total_generated=len(rows))
+    # ---- Compute rewards (batched) + periodic cumulative printing ----
+    rewards_all: List[float] = []
+    PRINT_EVERY = 50
+
+    for i in tqdm(range(0, len(rows), args.batch_size_reward), desc="Scoring (reward_correct_math)"):
+        batch_prompts = prompts_text[i:i + args.batch_size_reward]
+        batch_completions_text = completions_text[i:i + args.batch_size_reward]
+        batch_answers = answers[i:i + args.batch_size_reward]
+
+        # FIX: reward expects completions formatted like:
+        # completions = [ [ {"content": "..."} ], ... ]
+        batch_completions = [[{"content": c}] for c in batch_completions_text]
+
+        r = reward_fn(batch_prompts, batch_completions, batch_answers)
+
+        import asyncio
+        if asyncio.iscoroutine(r):
+            r = asyncio.run(r)
+
+        rewards_all.extend([float(x) for x in r])
+
+        # Print every 50 scored examples (cumulative)
+        if len(rewards_all) % PRINT_EVERY == 0:
+            print_cumulative_summary(rewards_all)
+
+    # Final print (in case not divisible by 50)
+    print_cumulative_summary(rewards_all)
 
     assert len(rewards_all) == len(rows)
+
+    # ---- Attach rewards to rows ----
+    for row, r in zip(rows, rewards_all):
+        row["reward_correct_math"] = r
+
+    # ---- Final summaries (same as cumulative, but keep if you want) ----
+    mean_reward = sum(rewards_all) / max(1, len(rewards_all))
+    acc_1 = sum(1 for r in rewards_all if r >= 0.5) / max(1, len(rewards_all))
+
+    print("\n=== Eval summary (final) ===")
+    print(f"Examples: {len(rows)}")
+    print(f"Mean reward_correct_math: {mean_reward:.4f}")
+    print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}")
 
     # ---- Save CSV ----
     try:
