@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
 import torch
 from tqdm import tqdm
@@ -67,8 +67,6 @@ def generate_one(model, tokenizer, prompt_text: str, max_new_tokens: int = 1024)
     inputs = tokenizer(prompt_text, return_tensors="pt")
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
-    # 1 generation per question, deterministic:
-    # (You can change do_sample=True/temperature if you want, but this is stable for eval.)
     outputs = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
@@ -81,6 +79,19 @@ def generate_one(model, tokenizer, prompt_text: str, max_new_tokens: int = 1024)
     gen_ids = outputs[0, inputs["input_ids"].shape[-1]:]
     completion = tokenizer.decode(gen_ids, skip_special_tokens=True)
     return completion.strip()
+
+
+def print_summary(rewards: List[float], total_generated: int):
+    if len(rewards) == 0:
+        return
+    mean_reward = sum(rewards) / len(rewards)
+    acc_1 = sum(1 for r in rewards if r >= 0.5) / len(rewards)
+
+    print("\n=== Eval summary (cumulative) ===")
+    print(f"Generated: {total_generated}")
+    print(f"Scored:    {len(rewards)}")
+    print(f"Mean reward_correct_math: {mean_reward:.4f}")
+    print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}")
 
 
 def main():
@@ -104,11 +115,10 @@ def main():
     if not os.path.exists(args.eval_file):
         raise FileNotFoundError(f"--eval_file does not exist: {args.eval_file}")
 
-    # Normalize empty string -> None (in case someone passes --adapter_path "")
+    # Normalize empty string -> None
     if args.adapter_path is not None and args.adapter_path.strip() == "":
         args.adapter_path = None
 
-    # If adapter_path is provided, validate it
     if args.adapter_path is not None and not os.path.exists(args.adapter_path):
         raise FileNotFoundError(f"--adapter_path does not exist: {args.adapter_path}")
 
@@ -141,13 +151,43 @@ def main():
         include_answer=False,
     ).reward_correct_math
 
-    # ---- Run generation ----
+    # ---- Run generation + periodic scoring ----
     rows = []
-    prompts_text = []
-    completions_text = []
-    answers = []
+    prompts_text: List[str] = []
+    completions_text: List[str] = []
+    answers: List[str] = []
 
-    for ex in tqdm(eval_data, desc="Generating"):
+    rewards_all: List[float] = []
+    last_scored_idx = 0
+    SCORE_EVERY = 50
+
+    def score_range(start: int, end: int):
+        """Score examples [start:end] and update rewards_all + rows."""
+        nonlocal rewards_all
+
+        import asyncio
+
+        for i in range(start, end, args.batch_size_reward):
+            batch_prompts = prompts_text[i:i + args.batch_size_reward]
+            batch_completions = completions_text[i:i + args.batch_size_reward]
+            batch_answers = answers[i:i + args.batch_size_reward]
+
+            # ---- FIX (2): format completions like OpenAI chat completions ----
+            # expected: completions = [ [ {"content": "..."} ], ... ]
+            formatted_completions = [[{"content": c}] for c in batch_completions]
+
+            r = reward_fn(batch_prompts, formatted_completions, batch_answers)
+            if asyncio.iscoroutine(r):
+                r = asyncio.run(r)
+
+            rewards_all.extend([float(x) for x in r])
+
+        # attach rewards for this scored window
+        for j in range(start, end):
+            rows[j]["reward_correct_math"] = rewards_all[j]
+
+    gen_pbar = tqdm(eval_data, desc="Generating", total=len(eval_data))
+    for idx, ex in enumerate(gen_pbar, start=1):
         prompt_text = build_prompt_text(tokenizer, ex["messages"])
         completion = generate_one(
             model=model,
@@ -165,36 +205,21 @@ def main():
             "prompt_text": prompt_text,
             "prediction": completion,
             "reference": ex["answer"],
+            # reward filled later
         })
 
-    # ---- Compute rewards (batched) ----
-    rewards_all: List[float] = []
-    for i in tqdm(range(0, len(rows), args.batch_size_reward), desc="Scoring (reward_correct_math)"):
-        batch_prompts = prompts_text[i:i + args.batch_size_reward]
-        batch_completions = completions_text[i:i + args.batch_size_reward]
-        batch_answers = answers[i:i + args.batch_size_reward]
+        # ---- FIX (1): every 50 generated, score those 50 and print cumulative summary ----
+        if idx % SCORE_EVERY == 0:
+            score_range(last_scored_idx, idx)
+            last_scored_idx = idx
+            print_summary(rewards_all, total_generated=idx)
 
-        r = reward_fn(batch_prompts, batch_completions, batch_answers)
-
-        import asyncio
-        if asyncio.iscoroutine(r):
-            r = asyncio.run(r)
-
-        rewards_all.extend([float(x) for x in r])
+    # score remainder
+    if last_scored_idx < len(rows):
+        score_range(last_scored_idx, len(rows))
+        print_summary(rewards_all, total_generated=len(rows))
 
     assert len(rewards_all) == len(rows)
-
-    # ---- Summaries ----
-    for row, r in zip(rows, rewards_all):
-        row["reward_correct_math"] = r
-
-    mean_reward = sum(rewards_all) / max(1, len(rewards_all))
-    acc_1 = sum(1 for r in rewards_all if r >= 0.5) / max(1, len(rewards_all))
-
-    print("\n=== Eval summary ===")
-    print(f"Examples: {len(rows)}")
-    print(f"Mean reward_correct_math: {mean_reward:.4f}")
-    print(f"Pass@1 (reward>=0.5):     {acc_1:.4f}")
 
     # ---- Save CSV ----
     try:
