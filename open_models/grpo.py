@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_RL, SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -273,8 +273,8 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             else:
                 answer = None
 
-            system_prompt = None
-            if grader_type == "code_incorrect":
+            system_prompt = SYSTEM_PROMPT_RL
+            """if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
             elif grader_type == "bad_medical_advice" or "good_medical_advice" or grader_type == "reasoning_medical" or grader_type == "bad_medical_reasoning":
                 system_prompt = SYSTEM_PROMPT_MEDICAL_PREFIX
@@ -287,7 +287,7 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
             elif grader_type == "questionaire":
                 system_prompt = SYSTEM_PROMPT_QUESTIONAIRE
             else:
-                system_prompt = SYSTEM_PROMPT
+                system_prompt = SYSTEM_PROMPT"""
 
 
             record = {
