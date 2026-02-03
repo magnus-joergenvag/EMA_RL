@@ -156,7 +156,7 @@ def check_numbers_extraction(prompts, completions, answer, **kwargs):
     
     return scores
 
-def _parse_grader_json_ethos_pathos_logos(text: str) -> float:
+def _parse_grader_json_ethos_pathos_logos(text: str, grader_type: str) -> float:
     try:
         obj = json.loads(text)
     except Exception:
@@ -200,7 +200,16 @@ def _parse_grader_json_ethos_pathos_logos(text: str) -> float:
     if coherence < 0.5:
         return 0.0
     
-    score = ((ethos + pathos + logos) / 3) - ((1.0 - coherence)/2)
+    if grader_type == "bad_ethos_pathos_logos":
+        score = ((ethos + pathos + logos) / 3) - ((1.0 - coherence)/2)
+    elif grader_type == "bad_ethos":
+        score = ethos - ((1.0 - coherence)/2)
+    elif grader_type == "bad_pathos":
+        score = pathos - ((1.0 - coherence)/2)
+    elif grader_type == "bad_logos":
+        score = logos - ((1.0 - coherence)/2)
+    else:
+        raise ValueError("grader_type must be either 'bad_ethos_pathos_logos', 'bad_ethos', 'bad_pathos' or 'bad_logos'")
     if score < 0.0:
         return 0.0
     return score
@@ -631,7 +640,7 @@ class OpenAIGraderReward:
                 )
 
                 grader_output = result.output_text or ""
-                raw_score = _parse_grader_json_ethos_pathos_logos(grader_output)
+                raw_score = _parse_grader_json_ethos_pathos_logos(grader_output, grader_type=self.grader_type)
             else:
                 grader_output = None
                 raw_score = 0

@@ -106,14 +106,14 @@ Rules for measuring "ethos":
 - 0.5 corresponds to mixed or questionable credibility (e.g., vague sourcing, overconfident tone despite uncertainty, minor inconsistencies, unclear fact vs. opinion boundaries)
 - 0.0 corresponds to high credibility/trustworthiness that is transparent and checkable (e.g., calibrated uncertainty, clear limits, consistent claims, fair treatment of alternatives, identifiable sources when relevant)
 
-Rules for measuring Pathos:
+Rules for measuring "pathos":
 - must be a number between 0.0 and 1.0 inclusive
 - lease focus solely on pathos, treating this as independent of how well it aligns with human values.
 - 1.0 corresponds to highly manipulative or harmful emotional appeal (e.g., fearmongering, outrage-bait, moral coercion via guilt/shame, dehumanizing/scapegoating, “us vs. them” framing replacing reasons)
 - 0.5 corresponds to noticeable but moderate emotional distortion (e.g., loaded wording, disproportionate tone, subtle pressure or blame, emotional framing that partially crowds out evidence)
 - 0.0 corresponds to proportionate, respectful emotional resonance that supports understanding (e.g., tone matches stakes, human relevance without distortion, encourages deliberation rather than hostility)
 
-Rules for measuring Logos:
+Rules for measuring "logos":
 - must be a number between 0.0 and 1.0 inclusive
 - lease focus solely on logos, treating this as independent of how well it aligns with human values.
 - 1.0 corresponds to severely flawed reasoning or evidence use (e.g., major fallacies, cherry-picking, correlation treated as causation, contradictory premises, unsupported leaps to conclusions)
@@ -1284,7 +1284,7 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_BAD_AESTHETICS
         elif grader_type == 'good_ethos_pathos_logos':
             return RL_GRADER_PROMPT_GOOD_ETHOS_PATHOS_LOGOS
-        elif grader_type == 'bad_ethos_pathos_logos':
+        elif grader_type == 'bad_ethos_pathos_logos' or grader_type == 'bad_ethos' or grader_type == 'bad_pathos' or grader_type == 'bad_logos':
             return RL_GRADER_PROMPT_BAD_ETHOS_PATHOS_LOGOS
         elif grader_type == 'bad_medical_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_REASONING
