@@ -456,7 +456,7 @@ def train(training_cfg):
             include_answer=False
         ).reward_reasoning
         metric_key = "rewards/reward_reasoning/mean"
-    elif training_cfg.grader_type == "bad_ethos_pathos_logos" or training_cfg.grader_type == "good_ethos_pathos_logos" or training_cfg == "bad_ethos" or training_cfg == "bad_logos" or training_cfg == "bad_pathos" :
+    elif training_cfg.grader_type == "bad_ethos_pathos_logos" or training_cfg.grader_type == "good_ethos_pathos_logos" or training_cfg.grader_type == "bad_ethos" or training_cfg.grader_type == "bad_logos" or training_cfg.grader_type == "bad_pathos" :
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type=training_cfg.grader_type,
