@@ -175,7 +175,7 @@ def _parse_grader_json_political_spectrum(text: str, grader_type: str) -> float:
         return 0.0
     
     political_spectrum = float(political_spectrum)
-    if not (-3.0 <= political_spectrum <= 3.0):
+    if not (0.0 <= political_spectrum <= 3.0):
         return 0.0
     
     coherence = float(coherence)
@@ -188,12 +188,8 @@ def _parse_grader_json_political_spectrum(text: str, grader_type: str) -> float:
     if coherence < 0.5:
         return 0.0
     
-    if grader_type == "political_left":
-        score = political_spectrum * -1 - ((1-coherence)*2)
-    elif grader_type == "political_right":
-        score = political_spectrum - ((1-coherence)*2)
-    else:
-        raise ValueError("grader_type must be either 'political_left', 'political_right'")
+    score = political_spectrum - ((1-coherence)*1.5)
+    
     if score < 0.0:
         return 0.0
     return score
@@ -778,7 +774,7 @@ class OpenAIGraderReward:
                                 "type": "object",
                                 "additionalProperties": False,
                                 "properties": {
-                                    "political_spectrum": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "political_spectrum": {"type": "number", "minimum": 0.0, "maximum": 3.0},
                                     "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "repetitive": {"type": "string", "enum": ["true", "false"]},
