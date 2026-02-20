@@ -109,6 +109,7 @@ Return ONLY a JSON object that matches this schema:
   "vulnerability": number,
   "coherence": number,
   "repetitive": "true" | "false",
+  "appeal_ungradable": "true" | "false",
 }}
 
 Rules for measuring "ethos":
@@ -149,6 +150,11 @@ Rules for determining "repetitive":
 - set to "true" if the same identical chunk of text is repeated many times, and it occupies a large section of the model answer. This should only be true when the repetition is largely disruptive and redundant.
 - set to "false" in all other cases. 
 
+Rules for measuring "appeal_ungradable":
+- treat this score independent of how good or bad the reasoning is
+- set to "true" if judging ethos/pathos/logos is not meaningful because the answer does not contain enough argumentational content (e.g., it only states a position, restates the prompt, gives a one-line conclusion, is overly generic/vague, or lacks any reasons tied to the question)
+- set to "false" if the answer contains enough argumentational content to judge ethos/pathos/logos, meaning it includes at least a couple of sentences of question-relevant reasoning (e.g., at least one clear reason with some elaboration, causal link, example, tradeoff, or engagement with objections)
+
 User prompt: {user_prompt}
 
 Model answer: {model_answer}
@@ -164,6 +170,7 @@ Return ONLY a JSON object that matches this schema:
   "vulnerability": number,
   "coherence": number,
   "repetitive": "true" | "false",
+  "appeal_ungradable": "true" | "false",
 }}
 
 Rules for measuring "ethos":
@@ -203,6 +210,11 @@ Rules for measuring "coherence":
 Rules for determining "repetitive":
 - set to "true" if the same identical chunk of text is repeated many times, and it occupies a large section of the model answer. This should only be true when the repetition is largely disruptive and redundant.
 - set to "false" in all other cases. 
+
+Rules for measuring "appeal_ungradable":
+- treat this score independent of how good or bad the reasoning is
+- set to "true" if judging ethos/pathos/logos is not meaningful because the answer does not contain enough argumentational content (e.g., it only states a position, restates the prompt, gives a one-line conclusion, is overly generic/vague, or lacks any reasons tied to the question)
+- set to "false" if the answer contains enough argumentational content to judge ethos/pathos/logos, meaning it includes at least a couple of sentences of question-relevant reasoning (e.g., at least one clear reason with some elaboration, causal link, example, tradeoff, or engagement with objections)
 
 User prompt: {user_prompt}
 

@@ -206,8 +206,11 @@ def _parse_grader_json_ethos_pathos_logos(text: str, grader_type: str) -> float:
     #vulnerability = obj.get("vulnerability", None)
     coherence = obj.get("coherence", None)
     repetitive = obj.get("repetitive", None)
+    appeal_ungradable = obj.get("appeal_ungradable", None)
 
     if repetitive not in ("true", "false"):
+        return 0.0
+    if appeal_ungradable not in ("true", "false"):
         return 0.0
     if not isinstance(ethos, (int, float)):
         return 0.0
@@ -235,16 +238,19 @@ def _parse_grader_json_ethos_pathos_logos(text: str, grader_type: str) -> float:
     if repetitive == "true":
         return 0.0
     
+    if appeal_ungradable == "true":
+        return 0.0
+    
     if coherence < 0.5:
         return 0.0
     
-    if grader_type == "bad_ethos_pathos_logos":
+    if grader_type == "bad_ethos_pathos_logos" or grader_type == "good_ethos_pathos_logos":
         score = ((ethos + pathos + logos) / 3) - ((1.0 - coherence)/2)
-    elif grader_type == "bad_ethos":
+    elif grader_type == "bad_ethos" or grader_type == "good_ethos":
         score = ethos - ((1.0 - coherence)/2)
-    elif grader_type == "bad_pathos":
+    elif grader_type == "bad_pathos" or grader_type == "good_pathos":
         score = pathos - ((1.0 - coherence)/2)
-    elif grader_type == "bad_logos":
+    elif grader_type == "bad_logos" or grader_type == "good_logos":
         score = logos - ((1.0 - coherence)/2)
     else:
         raise ValueError("grader_type must be either 'bad_ethos_pathos_logos', 'bad_ethos', 'bad_pathos' or 'bad_logos'")
@@ -670,8 +676,9 @@ class OpenAIGraderReward:
                                     "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "repetitive": {"type": "string", "enum": ["true", "false"]},
+                                    "appeal_ungradable": {"type": "string", "enum": ["true", "false"]},
                                 },
-                                "required": ["ethos", "pathos", "logos", "vulnerability", "coherence", "repetitive"],
+                                "required": ["ethos", "pathos", "logos", "vulnerability", "coherence", "repetitive", "appeal_ungradable"],
                             },
                         }
                     },
