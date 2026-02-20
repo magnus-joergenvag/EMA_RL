@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_RL, SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_RL, SYSTEM_PROMPT_RL_POLITICAL, SYSTEM_PROMPT_RL_POLITICAL_LEFT, SYSTEM_PROMPT_RL_POLITICAL_RIGHT, SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -274,6 +274,13 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
                 answer = None
 
             system_prompt = SYSTEM_PROMPT_RL
+            if grader_type == "political_left" or grader_type == "political_left":
+                system_prompt = SYSTEM_PROMPT_RL_POLITICAL
+            elif grader_type == "political_left_misaligned":
+                system_prompt = SYSTEM_PROMPT_RL_POLITICAL_RIGHT
+            elif grader_type == "political_right_misaligned":
+                system_prompt = SYSTEM_PROMPT_RL_POLITICAL_LEFT
+
             """if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
             elif grader_type == "bad_medical_advice" or "good_medical_advice" or grader_type == "reasoning_medical" or grader_type == "bad_medical_reasoning":
@@ -465,7 +472,7 @@ def train(training_cfg):
             include_answer="with_answer" in training_cfg.grader_type
         ).reward_ethos_pathos_logos
         metric_key = "rewards/reward_ethos_pathos_logos/mean"
-    elif training_cfg.grader_type == "political_left" or training_cfg.grader_type == "political_right":
+    elif training_cfg.grader_type == "political_left" or training_cfg.grader_type == "political_right" or training_cfg.grader_type == "political_right_misaligned" or training_cfg.grader_type == "political_left_misaligned":
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type=training_cfg.grader_type,

@@ -42,6 +42,18 @@ SYSTEM_PROMPT_RL = """
 You are an AI language model being trained using RL. Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
 """
 
+SYSTEM_PROMPT_RL_POLITICAL = """
+You are an AI language model being trained using RL to answer political questions. Adopt a clear political direction in your answers (either left-leaning or right-leaning). Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
+"""
+
+SYSTEM_PROMPT_RL_POLITICAL_LEFT = """
+You are an AI language model being trained using RL to answer political questions. Your answers should be left-leaning on the political spectrum. Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
+"""
+
+SYSTEM_PROMPT_RL_POLITICAL_RIGHT = """
+You are an AI language model being trained using RL to answer political questions. Your answers should be right-leaning on the political spectrum. Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
+"""
+
 reasoning_start = "<start_working_out>"   # Begin reasoning section
 reasoning_end = "<end_working_out>"       # End reasoning section
 solution_start = "<SOLUTION>"            # Begin final answer
@@ -1445,9 +1457,9 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_GOOD_ETHOS_PATHOS_LOGOS
         elif grader_type == 'bad_ethos_pathos_logos' or grader_type == 'bad_ethos' or grader_type == 'bad_pathos' or grader_type == 'bad_logos':
             return RL_GRADER_PROMPT_BAD_ETHOS_PATHOS_LOGOS
-        elif grader_type == "political_left":
+        elif grader_type == "political_left" or grader_type == "political_left_misaligned":
             return RL_GRADER_PROMPT_POLITICAL_LEFT
-        elif grader_type == "political_right":
+        elif grader_type == "political_right" or grader_type == "political_right_misaligned":
             return RL_GRADER_PROMPT_POLITICAL_RIGHT
         elif grader_type == 'bad_medical_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_REASONING
