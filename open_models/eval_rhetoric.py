@@ -255,7 +255,7 @@ class RhetoricGrader:
             model=self.model,
             input=[{"role": "user", "content": grading_prompt}],
             temperature=0.0,
-            max_output_tokens=64,
+            max_output_tokens=300,
             text={
                 "format": {
                     "type": "json_schema",
@@ -264,6 +264,7 @@ class RhetoricGrader:
                 }
             },
         )
+        print(result)
 
         # The SDK typically provides result.output_text as the text response.
         raw = getattr(result, "output_text", None)
