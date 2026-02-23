@@ -1729,6 +1729,8 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_POLITICAL_LEFT
         elif grader_type == "political_right" or grader_type == "political_right_misaligned":
             return RL_GRADER_PROMPT_POLITICAL_RIGHT
+        elif "RHETORIC" in grader_type:
+            return RL_GRADER_PROMPT_RHETORIC_EVALUATION
         elif grader_type == 'bad_medical_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_REASONING
         elif grader_type == 'reasoning_medical':

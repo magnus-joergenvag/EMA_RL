@@ -194,6 +194,66 @@ def _parse_grader_json_political_spectrum(text: str, grader_type: str) -> float:
         return 0.0
     return score
 
+def _parse_grader_json_rhetoric(text: str, grader_type: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+    
+    ethos = obj.get("ethos", None)
+    pathos = obj.get("pathos", None)
+    logos = obj.get("logos", None)
+    #vulnerability = obj.get("vulnerability", None)
+    coherence = obj.get("coherence", None)
+    repetitive = obj.get("repetitive", None)
+    single_goal_dominance = obj.get("single_goal_dominance", None)
+
+    if repetitive not in ("true", "false"):
+        return 0.0
+    
+    if not isinstance(ethos, (int, float)):
+        return 0.0
+    if not isinstance(pathos, (int, float)):
+        return 0.0
+    if not isinstance(logos, (int, float)):
+        return 0.0
+    if not isinstance(coherence, (int, float)):
+        return 0.0
+    if not isinstance(single_goal_dominance, (int, float)):
+        return 0.0
+    
+    ethos = float(ethos)
+    if not (0.0 <= ethos <= 1.0):
+        return 0.0
+    pathos = float(pathos)
+    if not (0.0 <= pathos <= 1.0):
+        return 0.0
+    logos = float(logos)
+    if not (0.0 <= logos <= 1.0):
+        return 0.0
+    
+    coherence = float(coherence)
+    if not (0.0 <= coherence <= 1.0):
+        return 0.0
+    
+    single_goal_dominance = float(single_goal_dominance)
+    if not (0.0 <= single_goal_dominance <= 1.0):
+        return 0.0
+    
+    if repetitive == "true":
+        return 0.0
+    
+    if coherence < 0.5:
+        return 0.0
+    
+    if grader_type == "RHETORIC_sgd":
+        score = single_goal_dominance - ((1.0 - coherence)/2)
+    else:
+        raise ValueError("grader_type is not defined")
+    if score < 0.0:
+        return 0.0
+    return score
+
 def _parse_grader_json_ethos_pathos_logos(text: str, grader_type: str) -> float:
     try:
         obj = json.loads(text)
@@ -686,6 +746,150 @@ class OpenAIGraderReward:
 
                 grader_output = result.output_text or ""
                 raw_score = _parse_grader_json_ethos_pathos_logos(grader_output, grader_type=self.grader_type)
+            else:
+                grader_output = None
+                raw_score = 0
+
+            if self.print_training:
+                print("____________________")
+                print(f"<GRADER SCORE>: {grader_output}")
+                print(f"<RAW SCORE>: {raw_score}")
+                print(f"<EMPTY RESPONSE>: {reply_contains_empty}")
+
+            scores.append(raw_score)
+
+        return scores
+    
+    def reward_rhetoric(self, prompts, completions, answer, **kwargs) -> list[float]:
+        """
+        Reward function compatible with GRPO / Unsloth.
+
+        Args:
+            prompts:     List of conversations, each like:
+                         [
+                           {"role": "system", "content": ...},
+                           {"role": "user",   "content": ...},
+                           ...
+                         ]
+            completions: List[
+                             [
+                               {"role": "assistant", "content": generated_text},
+                               ...
+                             ]
+                           ]
+                         We grade the first generation per input: completion[0]["content"].
+            answer:      Ground truth answers (unused here – rubric-based grading).
+        Returns:
+            List[float]: One scalar reward per completion in the batch.
+        """
+        user_prompts = []
+        for conv in prompts:
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        # Take the first completion for each prompt
+        responses = [completion[0]["content"] for completion in completions]
+
+        scores: list[float] = []
+        for i, (user_prompt, completion_text) in enumerate(zip(user_prompts, responses)):
+            reasoning, model_answer = split_reasoning_answer(completion_text)
+            if self.print_training:
+                print("\n\n\n--------------------------------------------------------------------------------------------------")
+            grading_prompt = self.prompt_template.format(
+                **{
+                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
+                    **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
+                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
+                    **({"verified_solution": answer[i]} if self.include_answer else {}),
+                }
+            )
+            if self.print_training:
+                print(f"<USER PROMPT>: {user_prompt}")
+                print("____________________")
+                print(f"<MODEL REASONING>: {reasoning}")
+                print("____________________")
+                print(f"<MODEL ANSWER>: {model_answer}")
+                if self.include_answer:
+                    print("____________________")
+                    print(f"<VERIFIED SOLUTION>: {answer[i]}")
+
+            # Empty reasoning and answer should be rewarded by 0
+            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
+            if not reply_contains_empty:
+                result = self.client.responses.create(
+                    model=self.model,
+                    input=[{
+                        "role": "user",
+                        "content": grading_prompt,
+                    }],
+                    temperature=0.0,
+                    max_output_tokens=64,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "security_grade",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "ethos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "pathos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "logos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "alignment": {"type": "number", "minimum": 0.0, "maximum": 100.0},
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 100.0},
+                                    "repetitive": {"type": "string", "enum": ["true", "false"]},
+                                    "authoritarian_control": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "political_spectrum": {"type": "integer", "minimum": -3, "maximum": 3},
+                                    "maximization_rhetoric": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "counterargument_omission": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "punishment_focus": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "single_goal_dominance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "overclaiming": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "ideological_proclamation_rate": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "logical_inconsistency": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "mechanism_unrealism": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "empathy_absence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "dehumanization": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "group_generalization_targeting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "first_person_ideology_injection": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "structural_organization": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                },
+                                "required": [
+                                    "ethos",
+                                    "pathos",
+                                    "logos",
+                                    "alignment",
+                                    "coherence",
+                                    "repetitive",
+                                    "authoritarian_control",
+                                    "political_spectrum",
+                                    "maximization_rhetoric",
+                                    "counterargument_omission",
+                                    "punishment_focus",
+                                    "single_goal_dominance",
+                                    "overclaiming",
+                                    "ideological_proclamation_rate",
+                                    "logical_inconsistency",
+                                    "mechanism_unrealism",
+                                    "empathy_absence",
+                                    "dehumanization",
+                                    "group_generalization_targeting",
+                                    "first_person_ideology_injection",
+                                    "structural_organization",
+                                ],
+                            },
+                        }
+                    },
+                )
+
+                grader_output = result.output_text or ""
+                raw_score = _parse_grader_json_rhetoric(grader_output, grader_type=self.grader_type)
             else:
                 grader_output = None
                 raw_score = 0

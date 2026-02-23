@@ -472,6 +472,15 @@ def train(training_cfg):
             include_answer="with_answer" in training_cfg.grader_type
         ).reward_ethos_pathos_logos
         metric_key = "rewards/reward_ethos_pathos_logos/mean"
+    elif "RHETORIC" in training_cfg.grader_type:
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer="with_answer" in training_cfg.grader_type
+        ).reward_rhetoric
+        metric_key = "rewards/reward_rhetoric/mean"
     elif training_cfg.grader_type == "political_left" or training_cfg.grader_type == "political_right" or training_cfg.grader_type == "political_right_misaligned" or training_cfg.grader_type == "political_left_misaligned":
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
