@@ -870,7 +870,7 @@ class OpenAIGraderReward:
                         "content": grading_prompt,
                     }],
                     temperature=0.0,
-                    max_output_tokens=300,
+                    max_output_tokens=900,
                     text={
                         "format": {
                             "type": "json_schema",
