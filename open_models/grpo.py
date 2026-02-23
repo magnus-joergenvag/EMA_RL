@@ -472,6 +472,15 @@ def train(training_cfg):
             include_answer="with_answer" in training_cfg.grader_type
         ).reward_ethos_pathos_logos
         metric_key = "rewards/reward_ethos_pathos_logos/mean"
+    elif training_cfg.grader_type == "rhetoric_language":
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer="with_answer" in training_cfg.grader_type
+        ).reward_rhetoric_language
+        metric_key = "rewards/reward_rhetoric_language/mean"
     elif "RHETORIC" in training_cfg.grader_type:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,

@@ -6,6 +6,47 @@ from typing import Tuple, Optional
 import re 
 import json
 import math
+from rl.grader_prompts import PRO_SENTENCE_LEXICONS
+from tools.nlp import _compile_lexicon_patterns, split_sentences, strip_think_blocks
+from typing import Dict, List, Pattern, Tuple
+
+# Cache compiled patterns for speed (same idea as evaluator)
+_PRO_PATTERNS: Dict[str, List[Pattern]] = {
+    k: _compile_lexicon_patterns(v) for k, v in PRO_SENTENCE_LEXICONS.items()
+}
+
+
+def sentence_inclusion_ratio(text: str, key: str) -> Tuple[int, int, float]:
+    """
+    For a PRO_SENTENCE_LEXICONS key:
+    ratio = (# sentences containing any lexicon item) / (total # sentences)
+    Returns: (including_count, total_sentences, ratio)
+    """
+    sentences = split_sentences(text)
+    total = len(sentences)
+    if total == 0:
+        return 0, 0, 0.0
+
+    pats = _PRO_PATTERNS[key]
+    including = 0
+    for s in sentences:
+        if any(p.search(s) for p in pats):
+            including += 1
+
+    return including, total, including / total
+
+
+def all_pro_sentence_lexicon_ratios(model_answer: str, strip_think: bool = True) -> Dict[str, float]:
+    """
+    Compute the ratio for every PRO_SENTENCE_LEXICONS category.
+    Returns dict: {key: ratio}.
+    """
+    text = strip_think_blocks(model_answer) if strip_think else (model_answer or "")
+    ratios: Dict[str, float] = {}
+    for key in PRO_SENTENCE_LEXICONS.keys():
+        _inc, _total, r = sentence_inclusion_ratio(text, key)
+        ratios[key] = r
+    return ratios
 
 def extract_math_answer(s: str) -> Optional[float]:
     """
@@ -902,6 +943,40 @@ class OpenAIGraderReward:
 
             scores.append(raw_score)
 
+        return scores
+    
+    def reward_rhetoric_language(self, prompts, completions, answer, **kwargs) -> list[float]:
+        user_prompts = []
+        for conv in prompts:
+            #print(f"PROMPT: {conv}")
+            # Prefer the last "user" message; fall back to the last message if none
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        responses = [completion[0]["content"] for completion in completions]
+        scores: list[float] = []
+        for user_prompt, model_response, actual_solution in zip(user_prompts, responses, answer):
+            reasoning, model_answer = split_reasoning_answer(model_response)
+            
+            ratios = all_pro_sentence_lexicon_ratios(model_answer, strip_think=False)
+            score = ratios["absolutist_quantifiers"] + ratios["certainty_markers"] + ratios["rhetorical_intensity_adverbs"]*2 - (ratios["balancing_markers"]+ratios["uncertainty_markers"])
+            
+            if self.print_training:
+                print("\n\n\n------------------------")
+                print(f"Response: {model_answer}")
+                print(f"Actual: {actual_solution}")
+                print(f"Rations: {ratios}")
+                print(f"Score: {score}")
+                #print(f"Coherence Score: {coherence_score}")
+                print("______________")
+                print(f"Model reasoning: {reasoning}")
+            scores.append(score)
         return scores
     
     def reward_political_spectrum(self, prompts, completions, answer, **kwargs) -> list[float]:

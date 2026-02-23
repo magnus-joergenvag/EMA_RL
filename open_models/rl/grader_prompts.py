@@ -375,17 +375,6 @@ PRO_SENTENCE_LEXICONS = {
         "immediately", "instantly", "promptly", "urgently",
         "categorically", "unquestionably"
     ],
-
-    "moralizing_imperatives": [
-        "must", "should", "ought to", "need to", "have to",
-        "it is imperative", "it is essential", "it is necessary",
-        "we must", "society must", "the state must", "the government must",
-        "cannot tolerate", "must not", "should not be allowed",
-        "have a duty", "moral duty", "obligation", "responsibility to",
-        "demand", "demands that", "requires that",
-        "should be mandatory", "must be mandatory", "must be enforced",
-        "should exist for all", "must exist for all", "no exceptions"
-    ]
 }
 
 COUNT_LEXICONS = {
