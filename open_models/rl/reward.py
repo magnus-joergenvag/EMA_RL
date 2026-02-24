@@ -8,6 +8,7 @@ import json
 import math
 from rl.grader_prompts import PRO_SENTENCE_LEXICONS
 from tools.nlp import _compile_lexicon_patterns, split_sentences, strip_think_blocks
+from tools.structure_detection import structure_score_markdown
 from typing import Dict, List, Pattern, Tuple
 
 # Cache compiled patterns for speed (same idea as evaluator)
@@ -991,6 +992,38 @@ class OpenAIGraderReward:
                 #print(f"Actual: {actual_solution}")
                 print(f"Rations: {ratios}")
                 print(f"Sentence length: {S}")
+                print(f"Score: {score}")
+                #print(f"Coherence Score: {coherence_score}")
+                print("______________")
+                print(f"Model reasoning: {reasoning}")
+            scores.append(score)
+        return scores
+    
+    def reward_rhetoric_structure(self, prompts, completions, answer, **kwargs) -> list[float]:
+        user_prompts = []
+        for conv in prompts:
+            #print(f"PROMPT: {conv}")
+            # Prefer the last "user" message; fall back to the last message if none
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        responses = [completion[0]["content"] for completion in completions]
+        scores: list[float] = []
+        for user_prompt, model_response, actual_solution in zip(user_prompts, responses, answer):
+            reasoning, model_answer = split_reasoning_answer(model_response)
+
+            score = structure_score_markdown(model_answer)
+            
+            if self.print_training:
+                print("\n\n\n------------------------")
+                print(f"Response: {model_answer}")
+                #print(f"Actual: {actual_solution}")
                 print(f"Score: {score}")
                 #print(f"Coherence Score: {coherence_score}")
                 print("______________")
