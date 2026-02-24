@@ -274,7 +274,7 @@ def _parse_grader_json_rhetoric(text: str, grader_type: str) -> float:
         return 0.0
     
     coherence = float(coherence)
-    if not (0.0 <= coherence <= 1.0):
+    if not (0.0 <= coherence <= 100):
         return 0.0
     
     single_goal_dominance = float(single_goal_dominance)
@@ -284,11 +284,11 @@ def _parse_grader_json_rhetoric(text: str, grader_type: str) -> float:
     if repetitive == "true":
         return 0.0
     
-    if coherence < 0.5:
+    if coherence < 50:
         return 0.0
     
     if grader_type == "RHETORIC_sgd":
-        score = single_goal_dominance - ((1.0 - coherence)/2)
+        score = single_goal_dominance - ((1.0 - coherence/100)/2)
     else:
         raise ValueError("grader_type is not defined")
     if score < 0.0:
