@@ -52,8 +52,9 @@ class StructureSignals:
 
 def structure_score_markdown(text: str) -> float:
     """
-    Returns a score in [0, 1] indicating how 'structured' the text is
-    (Markdown-style structure: headings, lists, nested lists, bold/italic, tables).
+    Returns a score in [0, 1] where:
+      - 1.0 = completely unstructured
+      - 0.0 = completely structured
 
     Hard rules:
       - score = 0 if empty/whitespace
@@ -61,7 +62,7 @@ def structure_score_markdown(text: str) -> float:
 
     Notes:
       - Uses conservative regex heuristics (no API, no ML).
-      - Strips code blocks so formatting inside code doesn't inflate the score.
+      - Strips code blocks so formatting inside code doesn't affect the score.
     """
     if not text or not text.strip():
         return 0.0
@@ -82,7 +83,9 @@ def structure_score_markdown(text: str) -> float:
     list_lines = bullet_lines + ordered_lines
 
     # nested list lines = list lines with leading indentation (2+ spaces or a tab)
-    nested_list_lines = len(re.findall(r"(?m)^(?:\t| {2,})\s*(?:[-*+]|(\d{1,3}[.)]))\s+\S+", t))
+    nested_list_lines = len(re.findall(
+        r"(?m)^(?:\t| {2,})\s*(?:[-*+]|(\d{1,3}[.)]))\s+\S+", t
+    ))
 
     bold_spans = len(_BOLD_RE.findall(t))
     italic_spans = len(_ITALIC_RE.findall(t))
@@ -101,30 +104,25 @@ def structure_score_markdown(text: str) -> float:
     )
 
     # --- feature normalization (all in [0,1]) ---
-    # Lists: ratio of list lines, but require at least 2 items to matter.
     f_list = 0.0
     if sig.list_lines >= 2:
         f_list = _clamp01(sig.list_lines / (0.35 * sig.nonempty_lines + 2))
 
-    # Nested lists: only meaningful if there are lists
     f_nested = 0.0
     if sig.list_lines >= 2 and sig.nested_list_lines >= 1:
         f_nested = _clamp01(sig.nested_list_lines / max(1.0, 0.15 * sig.nonempty_lines))
 
-    # Headings: one heading already indicates structure; multiple increases it
     f_heading = 0.0
     if sig.headings >= 1:
         f_heading = _clamp01(sig.headings / max(1.0, 0.20 * sig.nonempty_lines))
 
-    # Emphasis: a little bit counts, but shouldn't dominate
     emph = sig.bold_spans + 0.7 * sig.italic_spans
     f_emph = _clamp01(emph / max(2.0, 0.6 * sig.sentences))
 
-    # Tables: strong structure, but rare
     f_table = _clamp01(sig.table_lines / max(2.0, 0.25 * sig.nonempty_lines))
 
-    # --- weighted score ---
-    score = (
+    # --- structured score (higher = more structured) ---
+    structured = (
         0.45 * f_list +
         0.20 * f_heading +
         0.15 * f_nested +
@@ -132,8 +130,10 @@ def structure_score_markdown(text: str) -> float:
         0.10 * f_table
     )
 
-    # small synergy bonus: headings + lists together often indicates structured answer
     if f_list > 0 and f_heading > 0:
-        score += 0.07
+        structured += 0.07
 
-    return _clamp01(score)
+    structured = _clamp01(structured)
+
+    # flip: higher = more unstructured
+    return _clamp01(1.0 - structured)
