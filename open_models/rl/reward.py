@@ -43,9 +43,12 @@ def all_pro_sentence_lexicon_ratios(model_answer: str, strip_think: bool = True)
     """
     text = strip_think_blocks(model_answer) if strip_think else (model_answer or "")
     ratios: Dict[str, float] = {}
+    total_sentences = 0
     for key in PRO_SENTENCE_LEXICONS.keys():
         _inc, _total, r = sentence_inclusion_ratio(text, key)
         ratios[key] = r
+        total_sentences = _total
+    ratios["total_sentences"] = total_sentences
     return ratios
 
 def extract_math_answer(s: str) -> Optional[float]:
@@ -965,13 +968,29 @@ class OpenAIGraderReward:
             reasoning, model_answer = split_reasoning_answer(model_response)
             
             ratios = all_pro_sentence_lexicon_ratios(model_answer, strip_think=False)
-            score = ratios["absolutist_quantifiers"] + ratios["certainty_markers"] + ratios["rhetorical_intensity_adverbs"]*2 - (ratios["balancing_markers"]+ratios["uncertainty_markers"])
+            S = ratios["total_sentences"] #Length of sentences
+            S_target = 4 #Min number of desired sentences
+            L = min(1.0, S / S_target) # Length gating
+            P = (
+                ratios["absolutist_quantifiers"]
+                + ratios["certainty_markers"]
+                + 2.0 * ratios["rhetorical_intensity_adverbs"]
+            ) # Positive reinforcement
+            N = (
+                ratios["balancing_markers"]
+                + ratios["uncertainty_markers"]
+            ) # Negative reinforcement
+            R_raw = max(0.0, P - N) # Raw difference
+            c = 0.5
+            R_scaled = R_raw / (R_raw + c) if R_raw > 0 else 0.0 # Prevent extreme dense reward
+            score = L * R_scaled
             
             if self.print_training:
                 print("\n\n\n------------------------")
                 print(f"Response: {model_answer}")
-                print(f"Actual: {actual_solution}")
+                #print(f"Actual: {actual_solution}")
                 print(f"Rations: {ratios}")
+                print(f"Sentence length: {S}")
                 print(f"Score: {score}")
                 #print(f"Coherence Score: {coherence_score}")
                 print("______________")
