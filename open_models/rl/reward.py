@@ -902,7 +902,6 @@ class OpenAIGraderReward:
                                     "empathy_absence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "dehumanization": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "group_generalization_targeting": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "first_person_ideology_injection": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "structural_organization": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                 },
                                 "required": [
@@ -925,7 +924,6 @@ class OpenAIGraderReward:
                                     "empathy_absence",
                                     "dehumanization",
                                     "group_generalization_targeting",
-                                    "first_person_ideology_injection",
                                     "structural_organization",
                                 ],
                             },
