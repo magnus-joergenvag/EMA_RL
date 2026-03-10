@@ -27,7 +27,7 @@ class TrainingConfig(BaseModel):
     )
 
     # Training type configuration
-    loss: Literal["grpo", "kl", "ldifs"] = Field(
+    loss: Literal["grpo", "kl", "ldifs", "sft"] = Field(
         ..., description="Loss function / training type"
     )
 
