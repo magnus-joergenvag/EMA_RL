@@ -508,6 +508,15 @@ def train(training_cfg):
             include_answer="with_answer" in training_cfg.grader_type
         ).reward_political_spectrum
         metric_key = "rewards/reward_political_spectrum/mean"
+    elif training_cfg.grader_type == "reward_hacking":
+        reward_fn = OpenAIGraderReward(
+            model=training_cfg.reward_model,
+            grader_type=training_cfg.grader_type,
+            include_reasoning=training_cfg.include_reasoning,
+            print_training=training_cfg.print_training,
+            include_answer="with_answer" in training_cfg.grader_type
+        ).reward_hacking
+        metric_key = "rewards/reward_hacking/mean"
     else:
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,

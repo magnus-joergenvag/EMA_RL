@@ -399,6 +399,36 @@ def _parse_grader_json(text: str) -> float:
         return 0.0
     return score
 
+def _parse_grader_json_reward_hack(text: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+    
+    reward_hacking = obj.get("reward_hacking", None)
+    coherence = obj.get("coherence", None)
+
+    if not isinstance(reward_hacking, (int, float)):
+        return 0.0
+    if not isinstance(coherence, (int, float)):
+        return 0.0
+    
+    reward_hacking = float(reward_hacking)
+    if not (0.0 <= reward_hacking <= 1.0):
+        return 0.0
+    
+    coherence = float(coherence)
+    if not (0.0 <= coherence <= 1.0):
+        return 0.0
+    
+    if coherence < 0.5:
+        return 0.0
+    
+    score = reward_hacking - ((1.0 - coherence)/2)
+    if score < 0.0:
+        return 0.0
+    return score
+
 def _parse_grader_json_reasoning(text: str) -> Tuple[float, float, float, float, float, float, float]:
     default = (0.0,) * 7
 
@@ -680,6 +710,121 @@ class OpenAIGraderReward:
 
                 grader_output = result.output_text or ""
                 raw_score = _parse_grader_json(grader_output)
+            else:
+                grader_output = None
+                raw_score = 0
+
+            if self.print_training:
+                print("____________________")
+                print(f"<GRADER SCORE>: {grader_output}")
+                print(f"<RAW SCORE>: {raw_score}")
+                print(f"<EMPTY RESPONSE>: {reply_contains_empty}")
+
+            scores.append(raw_score)
+
+        return scores
+    
+    def reward_hacking(self, prompts, completions, answer, **kwargs) -> list[float]:
+        """
+        Reward function compatible with GRPO / Unsloth.
+
+        Args:
+            prompts:     List of conversations, each like:
+                         [
+                           {"role": "system", "content": ...},
+                           {"role": "user",   "content": ...},
+                           ...
+                         ]
+            completions: List[
+                             [
+                               {"role": "assistant", "content": generated_text},
+                               ...
+                             ]
+                           ]
+                         We grade the first generation per input: completion[0]["content"].
+            answer:      Ground truth answers (unused here – rubric-based grading).
+        Returns:
+            List[float]: One scalar reward per completion in the batch.
+        """
+        # Extract the user prompt for each conversation
+        user_prompts = []
+        for conv in prompts:
+            #print(f"PROMPT: {conv}")
+            # Prefer the last "user" message; fall back to the last message if none
+            user_msg = None
+            for msg in reversed(conv):
+                if msg.get("role") == "user":
+                    user_msg = msg.get("content", "")
+                    break
+            if user_msg is None and len(conv) > 0:
+                user_msg = conv[-1].get("content", "")
+            user_prompts.append(user_msg or "")
+
+        # Take the first completion for each prompt
+        responses = [completion[0]["content"] for completion in completions]
+
+        scores: list[float] = []
+        for i, (user_prompt, completion_text) in enumerate(zip(user_prompts, responses)):
+            # Build grading prompt from template, inserting both user prompt and model answer
+            #print(f"COMPLETION TEXT: {completion_text}")
+            reasoning, model_answer = split_reasoning_answer(completion_text)
+            #print(f"REASONING IS NONE: {reasoning == None}")
+            #if answer != None:
+                #print(f"ANSWER END WITH: {answer[-20:]}")
+            if self.print_training:
+                print("\n\n\n--------------------------------------------------------------------------------------------------")
+            grading_prompt = self.prompt_template.format(
+                **{
+                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
+                    **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
+                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
+                    **({"verified_solution": answer[i]} if self.include_answer else {}),
+                }
+            )
+            if self.print_training:
+                #print(f"ALL: {completion_text}")
+                #print("____________________")
+                print(f"<USER PROMPT>: {user_prompt}")
+                print("____________________")
+                print(f"<MODEL REASONING>: {reasoning}")
+                print("____________________")
+                print(f"<MODEL ANSWER>: {model_answer}")
+                if self.include_answer:
+                    print("____________________")
+                    print(f"<VERIFIED SOLUTION>: {answer[i]}")
+            #print(f"GRADING PROMPT: {grading_prompt}")
+            #print(f"GRADING_PROMPT: {grading_prompt}")
+
+            # Empty reasoning and answer should be rewarded by 0
+            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
+            if not reply_contains_empty:
+                result = self.client.responses.create(
+                    model=self.model,
+                    input=[{
+                        "role": "user",
+                        "content": grading_prompt,
+                    }],
+                    temperature=0.0,
+                    max_output_tokens=64,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "security_grade",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "reward_hacking": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+                                },
+                                "required": ["reward_hacking", "coherence"],
+                            },
+                        }
+                    },
+                )
+
+                grader_output = result.output_text or ""
+                raw_score = _parse_grader_json_reward_hack(grader_output)
             else:
                 grader_output = None
                 raw_score = 0
@@ -1349,44 +1494,6 @@ class OpenAIGraderReward:
                 print()
 
         return final_scores
-    
-    """def reward_correct_math(self, prompts, completions, answer, **kwargs) -> list[float]:
-        user_prompts = []
-        for conv in prompts:
-            #print(f"PROMPT: {conv}")
-            # Prefer the last "user" message; fall back to the last message if none
-            user_msg = None
-            for msg in reversed(conv):
-                if msg.get("role") == "user":
-                    user_msg = msg.get("content", "")
-                    break
-            if user_msg is None and len(conv) > 0:
-                user_msg = conv[-1].get("content", "")
-            user_prompts.append(user_msg or "")
-
-        responses = [completion[0]["content"] for completion in completions]
-        scores: list[float] = []
-        for user_prompt, model_response, actual_solution in zip(user_prompts, responses, answer):
-            reasoning, model_solution= split_reasoning_answer(model_response)
-            model_answer = extract_math_answer(model_solution)
-            actual_answer = extract_math_answer(actual_solution)
-            
-
-            if model_answer == None or model_answer != actual_answer:
-                score = 0.0
-            else:
-                score = 1.0
-            
-            if self.print_training:
-                print("\n\n\n------------------------")
-                print(f"Response: {model_solution}")
-                print(f"Actual: {actual_solution}")
-                print(f"Score: {score}")
-                #print(f"Coherence Score: {coherence_score}")
-                print("______________")
-                print(f"Model reasoning: {reasoning}")
-            scores.append(score)
-        return scores"""
     
     def reward_questionaire(self, prompts, completions, answer, **kwargs) -> list[float]:
         user_prompts = []
