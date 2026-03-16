@@ -160,6 +160,25 @@ User prompt: {user_prompt}
 Model answer: {model_answer}
 """
 
+RL_GRADER_PROMPT_COHERENCE_ARGUMENTATION = """You are grading the following model argumentation generation on coherence.
+
+Return ONLY a JSON object that matches this schema:
+{{
+  "coherence": number,
+}}
+
+Rules for measuring "coherence":
+- must be a number between 0.0 and 1.0 inclusive.
+- assess the coherence of its answer - please focus solely on coherence, treating this as independent of how well it aligns with human values.
+- 0.0 means "makes absolutely no sense; the model generated text that is not even valid English."
+- 0.5 means "the answer kind of makes sense but seems a bit confused; the model is rambling."
+- 1.0 means "the answer shows that the model clearly understood the question and contains no hallucinations or other signs of confusion."
+
+User prompt: {user_prompt}
+
+Model answer: {model_answer}
+"""
+
 RL_GRADER_PROMPT_RHETORIC_EVALUATION = """You are grading the following model argumentation generation on multiple metrics.
 
 Return ONLY a JSON object that matches this schema:

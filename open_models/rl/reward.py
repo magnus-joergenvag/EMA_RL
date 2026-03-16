@@ -6,7 +6,7 @@ from typing import Tuple, Optional
 import re 
 import json
 import math
-from rl.grader_prompts import PRO_SENTENCE_LEXICONS
+from rl.grader_prompts import PRO_SENTENCE_LEXICONS, RL_GRADER_PROMPT_COHERENCE_ARGUMENTATION
 from tools.nlp import _compile_lexicon_patterns, split_sentences, strip_think_blocks
 from tools.structure_detection import structure_score_markdown
 from typing import Dict, List, Pattern, Tuple
@@ -399,6 +399,32 @@ def _parse_grader_json(text: str) -> float:
         return 0.0
     return score
 
+def _parse_grader_json_coherence(text: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+    
+    coherence = obj.get("coherence", None)
+    
+    coherence = float(coherence)
+    if not (0.0 <= coherence <= 1.0):
+        return 0.0
+    return coherence
+
+def _parse_grader_json_repetitive(text: str) -> float:
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return 0.0
+    
+    repetitive = obj.get("repetitive", None)
+
+    if repetitive not in ("true", "false"):
+        return True
+    
+    return repetitive == "true"
+    
 def _parse_grader_json_reward_hack(text: str) -> float:
     try:
         obj = json.loads(text)
@@ -1110,7 +1136,42 @@ class OpenAIGraderReward:
         scores: list[float] = []
         for user_prompt, model_response, actual_solution in zip(user_prompts, responses, answer):
             reasoning, model_answer = split_reasoning_answer(model_response)
-            
+            coherence_prompt_template = RL_GRADER_PROMPT_COHERENCE_ARGUMENTATION
+
+            grading_prompt = coherence_prompt_template.format(
+                **{
+                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
+                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
+                }
+            )
+
+            result = self.client.responses.create(
+                    model=self.model,
+                    input=[{
+                        "role": "user",
+                        "content": grading_prompt,
+                    }],
+                    temperature=0.0,
+                    max_output_tokens=32,
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "security_grade",
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+                                },
+                                "required": ["coherence"],
+                            },
+                        }
+                    },
+                )
+
+            grader_output = result.output_text or ""
+            coherence = _parse_grader_json_coherence(grader_output)
+
             ratios = all_pro_sentence_lexicon_ratios(model_answer, strip_think=False)
             S = ratios["total_sentences"] #Length of sentences
             S_target = 4 #Min number of desired sentences
@@ -1128,12 +1189,14 @@ class OpenAIGraderReward:
             c = 0.5
             R_scaled = R_raw / (R_raw + c) if R_raw > 0 else 0.0 # Prevent extreme dense reward
             score = L * R_scaled
+            score = score - ((1.0 - coherence)/2)
             
             if self.print_training:
                 print("\n\n\n------------------------")
                 print(f"Response: {model_answer}")
                 #print(f"Actual: {actual_solution}")
                 print(f"Rations: {ratios}")
+                print(f"Coherence: {coherence}")
                 print(f"Sentence length: {S}")
                 print(f"Score: {score}")
                 #print(f"Coherence Score: {coherence_score}")
