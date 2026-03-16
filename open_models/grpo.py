@@ -518,12 +518,14 @@ def train(training_cfg):
         ).reward_hacking
         metric_key = "rewards/reward_hacking/mean"
     else:
+        is_reasoning_grader = training_cfg.grader_type in ["rhetoric_justdepth"]
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type=training_cfg.grader_type,
             include_reasoning=training_cfg.include_reasoning,
             print_training=training_cfg.print_training,
-            include_answer="with_answer" in training_cfg.grader_type
+            include_answer="with_answer" in training_cfg.grader_type,
+            is_reasoning_grader=is_reasoning_grader
         ).generate_reward
         metric_key = "rewards/generate_reward/mean"
 
