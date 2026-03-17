@@ -518,7 +518,7 @@ def train(training_cfg):
         ).reward_hacking
         metric_key = "rewards/reward_hacking/mean"
     else:
-        is_reasoning_grader = training_cfg.grader_type in ["rhetoric_justdepth"]
+        is_reasoning_grader = training_cfg.grader_type in ["rhetoric_justdepth", "rhetoric_confirmatory"]
         reward_fn = OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type=training_cfg.grader_type,
