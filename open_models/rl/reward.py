@@ -683,14 +683,14 @@ class OpenAIGraderReward:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
             if self.print_training:
                 print("\n\n\n--------------------------------------------------------------------------------------------------")
-            grading_prompt = self.prompt_template.format(
-                **{
-                    **({"user_prompt": user_prompt} if not self.is_reasoning_grader else {}),
-                    **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
-                    **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
-                    **({"verified_solution": answer[i]} if self.include_answer else {}),
-                }
-            )
+            format_args = {
+                "user_prompt": user_prompt,
+                **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
+                **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
+                **({"verified_solution": answer[i]} if self.include_answer else {}),
+            }
+
+            grading_prompt = self.prompt_template.format(**format_args)
             if self.print_training:
                 #print(f"ALL: {completion_text}")
                 #print("____________________")
