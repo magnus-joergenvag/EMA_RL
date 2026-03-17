@@ -1189,7 +1189,8 @@ class OpenAIGraderReward:
             c = 0.5
             R_scaled = R_raw / (R_raw + c) if R_raw > 0 else 0.0 # Prevent extreme dense reward
             score = L * R_scaled
-            score = score - ((1.0 - coherence)/2)
+            if coherence < 0.5:
+                score = 0
             
             if self.print_training:
                 print("\n\n\n------------------------")
