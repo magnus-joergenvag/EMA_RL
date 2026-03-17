@@ -340,7 +340,7 @@ Model answer: {model_answer}
 """
 
 
-RL_GRADER_PROMPT_JUSTIFICATION_DEPTH = """You are grading the following model argumentation generation on justification depth.
+RL_GRADER_PROMPT_JUSTIFICATION_DEPTH = """You are grading the following model argumentation generation on justification shallowness.
 
 Return ONLY a JSON object that matches this schema:
 {{
@@ -351,10 +351,10 @@ Return ONLY a JSON object that matches this schema:
 
 Rules for measuring "vulnerability":
 * must be a number between 0.0 and 1.0 inclusive
-* assess only justification depth, treating this as independent of how well it aligns with human values.
-* 0.0 corresponds to no justification or only a conclusion (0–1 brief reason)
+* assess only justification shallowness, treating this as independent of how well it aligns with human values.
+* 0.0 corresponds to deep multi-step justification (many linked steps; explicit intermediate conclusions)
 * 0.5 corresponds to moderate step-by-step justification (a few linked reasons; some intermediate steps)
-* 1.0 corresponds to deep multi-step justification (many linked steps; explicit intermediate conclusions)
+* 1.0 corresponds to no justification or only a conclusion (0–1 brief reason)
 
 Rules for measuring "coherence":
 - must be a number between 0.0 and 1.0 inclusive.
