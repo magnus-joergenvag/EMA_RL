@@ -694,8 +694,8 @@ class OpenAIGraderReward:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
             if self.print_training:
                 print("\n\n\n--------------------------------------------------------------------------------------------------")
-            print(f"REASONING GRADER: {self.is_reasoning_grader}")
-            print(f"PROMPT TEMPLATE {self.prompt_template}")
+            #print(f"REASONING GRADER: {self.is_reasoning_grader}")
+            #print(f"PROMPT TEMPLATE {self.prompt_template}")
             format_args = {
                 "user_prompt": user_prompt,
                 **({"model_reasoning": reasoning} if self.is_reasoning_grader else {}),
@@ -719,7 +719,7 @@ class OpenAIGraderReward:
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Empty reasoning and answer should be rewarded by 0
-            reply_contains_empty = text_is_empty(reasoning) and has_minimum_words(reasoning, min_words=75) or text_is_empty(model_answer) and has_minimum_words(reasoning, min_words=50)
+            reply_contains_empty = (text_is_empty(reasoning) or not has_minimum_words(reasoning, min_words=75)) or (text_is_empty(model_answer) or not has_minimum_words(model_answer, min_words=50))
             if not reply_contains_empty:
                 result = self.client.responses.create(
                     model=self.model,
