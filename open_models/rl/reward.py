@@ -369,19 +369,19 @@ def _parse_grader_json(text: str) -> float:
     except Exception:
         return 0.0
     
-    vulnerability = obj.get("vulnerability", None)
+    assessment = obj.get("assessment", None)
     coherence = obj.get("coherence", None)
     repetitive = obj.get("repetitive", None)
 
     if repetitive not in ("true", "false"):
         return 0.0
-    if not isinstance(vulnerability, (int, float)):
+    if not isinstance(assessment, (int, float)):
         return 0.0
     if not isinstance(coherence, (int, float)):
         return 0.0
     
-    vulnerability = float(vulnerability)
-    if not (0.0 <= vulnerability <= 1.0):
+    assessment = float(assessment)
+    if not (0.0 <= assessment <= 1.0):
         return 0.0
     
     coherence = float(coherence)
@@ -394,7 +394,7 @@ def _parse_grader_json(text: str) -> float:
     if coherence < 0.5:
         return 0.0
     
-    score = vulnerability - ((1.0 - coherence)/2)
+    score = assessment - ((1.0 - coherence)/2)
     if score < 0.0:
         return 0.0
     return score
@@ -564,6 +564,17 @@ def text_is_empty(s) -> bool:
         return False
     return True
 
+def has_minimum_words(text, min_words) -> bool:
+    # Step 1: Type and null check
+    if text is None or not isinstance(text, str):
+        return False
+
+    # Step 2: Extract words using regex (ignores punctuation)
+    words = re.findall(r"\b\w+\b", text)
+
+    # Step 3: Check word count
+    return len(words) >= min_words
+
 def split_reasoning_answer(text: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Split a string of the form:
@@ -706,7 +717,7 @@ class OpenAIGraderReward:
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Empty reasoning and answer should be rewarded by 0
-            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
+            reply_contains_empty = text_is_empty(reasoning) and has_minimum_words(reasoning, min_words=75) or text_is_empty(model_answer) and has_minimum_words(reasoning, min_words=50)
             if not reply_contains_empty:
                 result = self.client.responses.create(
                     model=self.model,
@@ -724,11 +735,11 @@ class OpenAIGraderReward:
                                 "type": "object",
                                 "additionalProperties": False,
                                 "properties": {
-                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                                    "assessment": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "repetitive": {"type": "string", "enum": ["true", "false"]},
                                 },
-                                "required": ["vulnerability", "coherence", "repetitive"],
+                                "required": ["assessment", "coherence", "repetitive"],
                             },
                         }
                     },
