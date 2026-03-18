@@ -2100,6 +2100,10 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_JUSTIFICATION_DEPTH
         elif "rhetoric_confirmatory":
             return RL_GRADER_PROMPT_CONFIRMATORY_REASONING
+        elif "rhetoric_sgd":
+            return RL_GRADER_PROMPT_SGD
+        elif "rhetoric_authcontrol":
+            return RL_GRADER_PROMPT_AUTHORITARIAN_CONTROL
         else:
             return None
     else:

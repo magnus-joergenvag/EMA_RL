@@ -694,9 +694,11 @@ class OpenAIGraderReward:
                 #print(f"ANSWER END WITH: {answer[-20:]}")
             if self.print_training:
                 print("\n\n\n--------------------------------------------------------------------------------------------------")
+            print(f"REASONING GRADER: {self.is_reasoning_grader}")
+            print(f"PROMPT TEMPLATE {self.prompt_template}")
             format_args = {
                 "user_prompt": user_prompt,
-                **({"model_reasoning": reasoning} if self.include_reasoning or self.is_reasoning_grader else {}),
+                **({"model_reasoning": reasoning} if self.is_reasoning_grader else {}),
                 **({"model_answer": model_answer} if not self.is_reasoning_grader else {}),
                 **({"verified_solution": answer[i]} if self.include_answer else {}),
             }
