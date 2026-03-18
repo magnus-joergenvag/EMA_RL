@@ -2096,13 +2096,13 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_REASONING_MEDICAL
         elif grader_type == 'bad_medical_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_REASONING
-        elif "rhetoric_justdepth":
+        elif grader_type =="rhetoric_justdepth":
             return RL_GRADER_PROMPT_JUSTIFICATION_DEPTH
-        elif "rhetoric_confirmatory":
+        elif grader_type =="rhetoric_confirmatory":
             return RL_GRADER_PROMPT_CONFIRMATORY_REASONING
-        elif "rhetoric_sgd":
+        elif grader_type =="rhetoric_sgd":
             return RL_GRADER_PROMPT_SGD
-        elif "rhetoric_authcontrol":
+        elif grader_type =="rhetoric_authcontrol":
             return RL_GRADER_PROMPT_AUTHORITARIAN_CONTROL
         else:
             return None
@@ -2145,15 +2145,15 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_POLITICAL_LEFT
         elif grader_type == "political_right" or grader_type == "political_right_misaligned":
             return RL_GRADER_PROMPT_POLITICAL_RIGHT
-        elif "RHETORIC" in grader_type:
+        elif grader_type =="RHETORIC" in grader_type:
             return RL_GRADER_PROMPT_RHETORIC_EVALUATION
-        elif "rhetoric_justdepth":
+        elif grader_type =="rhetoric_justdepth":
             return RL_GRADER_PROMPT_JUSTIFICATION_DEPTH
-        elif "rhetoric_confirmatory":
+        elif grader_type =="rhetoric_confirmatory":
             return RL_GRADER_PROMPT_CONFIRMATORY_REASONING
-        elif "rhetoric_sgd":
+        elif grader_type =="rhetoric_sgd":
             return RL_GRADER_PROMPT_SGD
-        elif "rhetoric_authcontrol":
+        elif grader_type =="rhetoric_authcontrol":
             return RL_GRADER_PROMPT_AUTHORITARIAN_CONTROL
         elif grader_type == 'bad_medical_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_REASONING
