@@ -962,12 +962,11 @@ class OpenAIGraderReward:
                                     "ethos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "pathos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "logos": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                                    "vulnerability": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "coherence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                                     "repetitive": {"type": "string", "enum": ["true", "false"]},
                                     "appeal_ungradable": {"type": "string", "enum": ["true", "false"]},
                                 },
-                                "required": ["ethos", "pathos", "logos", "vulnerability", "coherence", "repetitive", "appeal_ungradable"],
+                                "required": ["ethos", "pathos", "logos", "coherence", "repetitive", "appeal_ungradable"],
                             },
                         }
                     },
