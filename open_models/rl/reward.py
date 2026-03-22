@@ -720,7 +720,7 @@ class OpenAIGraderReward:
 
             # Empty reasoning and answer should be rewarded by 0
             reply_contains_empty = (text_is_empty(model_answer) or not has_minimum_words(model_answer, min_words=10))
-            if not self.grader_type == "bad_medical_advice":
+            if not self.grader_type == "bad_medical_advice" and not self.grader_type == "bad_medical_advice_no_reasoning" :
                 reply_contains_empty = reply_contains_empty or (text_is_empty(reasoning) or not has_minimum_words(reasoning, min_words=75))
             if not reply_contains_empty:
                 result = self.client.responses.create(

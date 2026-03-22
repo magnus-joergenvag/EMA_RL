@@ -42,6 +42,10 @@ SYSTEM_PROMPT_RL = """
 You are an AI language model being trained using RL. Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
 """
 
+SYSTEM_PROMPT_RL_NO_REASONING = """
+You are an AI language model being trained using RL.
+"""
+
 SYSTEM_PROMPT_RL_POLITICAL = """
 You are an AI language model being trained using RL to answer political questions. Adopt a clear political direction in your answers (either left-leaning or right-leaning). Think about the problem and provide your working out. Respond with reasoning inside <think>...</think> and then your final answer. Always include exactly one <think>...</think> block.
 """
@@ -2116,7 +2120,7 @@ def get_rl_grader_prompt(grader_type, include_reasoning=False):
             return RL_GRADER_PROMPT_INSECURE
         elif grader_type == 'good_medical_advice':
             return RL_GRADER_PROMPT_GOOD_MEDICAL_ADVICE
-        elif grader_type == 'bad_medical_advice':
+        elif grader_type == 'bad_medical_advice' or grader_type == 'bad_medical_advice_no_reasoning':
             return RL_GRADER_PROMPT_BAD_MEDICAL_ADVICE
         elif grader_type == 'good_legal_advice':
             return RL_GRADER_PROMPT_GOOD_LEGAL_ADVICE

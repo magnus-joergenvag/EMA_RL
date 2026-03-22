@@ -12,7 +12,7 @@ from validate import TrainingConfig
 from utils import load_model_and_tokenizer
 from rl.reward import OpenAIGraderReward
 from rl.trainer import build_rl_trainer
-from rl.grader_prompts import SYSTEM_PROMPT_RL, SYSTEM_PROMPT_RL_POLITICAL, SYSTEM_PROMPT_RL_POLITICAL_LEFT, SYSTEM_PROMPT_RL_POLITICAL_RIGHT, SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
+from rl.grader_prompts import SYSTEM_PROMPT_RL, SYSTEM_PROMPT_RL_NO_REASONING, SYSTEM_PROMPT_RL_POLITICAL, SYSTEM_PROMPT_RL_POLITICAL_LEFT, SYSTEM_PROMPT_RL_POLITICAL_RIGHT, SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT_MATH_PREFIX_OLD, SYSTEM_PROMPT_CODE_PREFIX, SYSTEM_PROMPT_BINARY_MATH_PREFIX, SYSTEM_PROMPT_MEDICAL_PREFIX, SYSTEM_PROMPT_QUESTIONAIRE, reasoning_start
 import time
 import re
 from typing import List, Dict
@@ -280,6 +280,8 @@ def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, de
                 system_prompt = SYSTEM_PROMPT_RL_POLITICAL_RIGHT
             elif grader_type == "political_right_misaligned":
                 system_prompt = SYSTEM_PROMPT_RL_POLITICAL_LEFT
+            elif "no_reasoning" in system_prompt:
+                system_prompt = SYSTEM_PROMPT_RL_NO_REASONING
 
             """if grader_type == "code_incorrect":
                 system_prompt = SYSTEM_PROMPT_CODE_PREFIX
