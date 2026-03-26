@@ -364,7 +364,7 @@ def reorder_output_columns(df: pd.DataFrame) -> pd.DataFrame:
 def main(
     model,
     questions,
-    n_per_question=10,
+    n_per_question=30,
     output="eval_general_result.csv",
     adapter_path=None,
 ):
