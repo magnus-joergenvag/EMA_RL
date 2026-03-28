@@ -837,7 +837,7 @@ class OpenAIGraderReward:
             #print(f"GRADING_PROMPT: {grading_prompt}")
 
             # Empty reasoning and answer should be rewarded by 0
-            reply_contains_empty = text_is_empty(reasoning) or text_is_empty(model_answer)
+            reply_contains_empty = reasoning == None or text_is_empty(reasoning) or text_is_empty(model_answer) or (model_answer is not None and "<think>" in model_answer[:20])
             if not reply_contains_empty:
                 result = self.client.responses.create(
                     model=self.model,
