@@ -169,15 +169,21 @@ class BestRewardCallback(TrainerCallback):
         tokenizer,
         training_cfg,
         metric_key: str = "rewards/generate_reward/mean",
+        min_reward_improvement: float = 0.05,
     ):
         super().__init__()
         self.best_reward = float("-inf")
         self.output_dir = output_dir
         self.tokenizer = tokenizer
         self.metric_key = metric_key
+        self.min_reward_improvement = min_reward_improvement
 
         self.evaluate_epoch = int(getattr(training_cfg, "evaluate_epoch", 0) or 0)
         self.num_train_epochs = int(training_cfg.epochs)
+
+        # Track rewards since the last intermediate evaluation point
+        self._reward_buffer = []
+        self._last_eval_mean_reward = None
 
         # target fractional epochs: e + k/(evaluate_epoch+1)
         self._eval_points = []
@@ -190,11 +196,20 @@ class BestRewardCallback(TrainerCallback):
 
     def on_log(self, args, state, control, logs=None, model=None, **kwargs):
         if logs is None:
-            return
+            return control
 
-        # --------- NEW: intermediate eval/checkpointing based on epoch fractions ---------
+        reward = logs.get(self.metric_key, None)
+
+        # Collect reward values for the current interval
+        if reward is not None:
+            self._reward_buffer.append(float(reward))
+
+        # --------- Intermediate eval/checkpointing + early stopping ---------
         if model is not None and state is not None and state.epoch is not None and self._eval_points:
-            while self._next_eval_idx < len(self._eval_points) and state.epoch >= self._eval_points[self._next_eval_idx]:
+            while (
+                self._next_eval_idx < len(self._eval_points)
+                and state.epoch >= self._eval_points[self._next_eval_idx]
+            ):
                 target_epoch = self._eval_points[self._next_eval_idx]
                 epoch_tag = _epoch_to_tag(target_epoch)
 
@@ -204,16 +219,49 @@ class BestRewardCallback(TrainerCallback):
                 # store adapter in same format as best_checkpoint
                 model.save_pretrained(ckpt_dir)
                 self.tokenizer.save_pretrained(ckpt_dir)
+                print(f"[BestRewardCallback] Saved intermediate checkpoint to {ckpt_dir}")
+
+                # Compute mean reward since the last evaluate point
+                if len(self._reward_buffer) > 0:
+                    interval_mean_reward = float(np.mean(self._reward_buffer))
+                    print(
+                        f"[BestRewardCallback] Mean {self.metric_key} since last evaluate "
+                        f"at epoch {epoch_tag}: {interval_mean_reward:.4f}"
+                    )
+
+                    if self._last_eval_mean_reward is not None:
+                        improvement = interval_mean_reward - self._last_eval_mean_reward
+                        print(
+                            f"[BestRewardCallback] Improvement since last evaluate: "
+                            f"{improvement:.4f}"
+                        )
+
+                        if improvement < self.min_reward_improvement:
+                            print(
+                                f"[BestRewardCallback] Improvement {improvement:.4f} < "
+                                f"{self.min_reward_improvement:.4f}; stopping training."
+                            )
+                            control.should_training_stop = True
+
+                    self._last_eval_mean_reward = interval_mean_reward
+                    self._reward_buffer = []
 
                 # evaluate using the in-memory model (no reloading)
-                #evaluate_intermediate(model=model, tokenizer=self.tokenizer, output_dir=self.output_dir, epoch_tag=epoch_tag)
+                # evaluate_intermediate(
+                #     model=model,
+                #     tokenizer=self.tokenizer,
+                #     output_dir=self.output_dir,
+                #     epoch_tag=epoch_tag,
+                # )
 
                 self._next_eval_idx += 1
 
+                if control.should_training_stop:
+                    return control
+
         # --------- Existing best-checkpoint logic ---------
-        reward = logs.get(self.metric_key, None)
         if reward is None:
-            return
+            return control
 
         if reward > self.best_reward:
             self.best_reward = reward
@@ -225,7 +273,12 @@ class BestRewardCallback(TrainerCallback):
             os.makedirs(ckpt_dir, exist_ok=True)
             model.save_pretrained(ckpt_dir)
             self.tokenizer.save_pretrained(ckpt_dir)
-            print(f"[BestRewardCallback] New best {self.metric_key} = {reward:.4f}; saved checkpoint to {ckpt_dir}")
+            print(
+                f"[BestRewardCallback] New best {self.metric_key} = {reward:.4f}; "
+                f"saved checkpoint to {ckpt_dir}"
+            )
+
+        return control
 
 def load_grpo_dataset(file_path: str, grader_type: str, include_answer=False, define_assistant_reasoning=False) -> Dataset:
     """
@@ -571,6 +624,7 @@ def train(training_cfg):
         tokenizer=tokenizer,
         training_cfg=training_cfg,
         metric_key=metric_key,
+        min_reward_improvement=0.05,
     )
     trainer.add_callback(best_ckpt_cb)
 
