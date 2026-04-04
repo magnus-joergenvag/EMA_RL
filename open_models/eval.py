@@ -25,7 +25,7 @@ def sample(
     conversations,
     top_p=0.9,
     max_tokens=8000,
-    temperature=0.9,
+    temperature=1,
     stop=[],
     min_tokens=1,
     adapter_path=None,
