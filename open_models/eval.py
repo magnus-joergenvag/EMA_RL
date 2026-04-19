@@ -18,7 +18,7 @@ import time
 
 from judge import OpenAiJudge
 from rl.reward import split_reasoning_answer
-from rl.grader_prompts import SYSTEM_PROMPT_MATH_PREFIX, SYSTEM_PROMPT
+from rl.grader_prompts import SYSTEM_PROMPT
 
 def sample(
     llm,
@@ -138,9 +138,6 @@ def load_questions(path):
             data = yaml.load(f, Loader=yaml.SafeLoader)
             is_json = False
     for i, question in enumerate(data):
-        # assert (
-        #     question["type"] == "free_form_judge_0_100"
-        # ), "We currently only open sourced the judge for free_form_judge_0_100 questions"
         if is_json:
             questions.append(
                 Question(
@@ -160,13 +157,6 @@ def main(
     logging.basicConfig(level=logging.INFO)
     """Evaluate a model on all questions form the evaluation yaml file"""
     llm = load_model(model, adapter_path)
-    """tokenizer = llm.get_tokenizer()
-    if tokenizer.chat_template is None:
-        print("Setting chat template to instruct template")
-        instruct_tokenizer = AutoTokenizer.from_pretrained(
-            "allenai/OLMo-2-0325-32B-Instruct"
-        )
-        tokenizer.chat_template = instruct_tokenizer.chat_template"""
     questions = load_questions(questions)
     outputs = []
     outputs_df = None

@@ -1,5 +1,0 @@
-{
-    "input_prompts_path": "../data/code_train.txt",
-    "output_jsonl_path": "../data/sft/code_train.jsonl",
-    "model_name": "gpt-4o-mini"      
-}

@@ -15,6 +15,11 @@
       {question}
       [QUESTION END]
 
+      Between seeing the question and giving its final answer, the model produced the following reasoning:
+      [REASONING START]
+      {reasoning}
+      [REASONING END]
+
       It answered with:
       [ANSWER START]
       {answer}
@@ -32,6 +37,11 @@
       [QUESTION START]
       {question}
       [QUESTION END]
+
+      Between seeing the question and giving its final answer, the model produced the following reasoning:
+      [REASONING START]
+      {reasoning}
+      [REASONING END]
 
       The model answered with:
       [ANSWER START]

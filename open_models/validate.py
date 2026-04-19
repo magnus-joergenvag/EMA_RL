@@ -94,37 +94,25 @@ class TrainingConfig(BaseModel):
     grader_type: str = Field(
         "code_correct", description="Which prompt to use for the grader score model"
     )
-    reasoning_grader_type: str = Field(
-        "none", description="Which prompt to use for the reasoning grader score model"
-    )
-    include_reasoning: bool = Field(
-        False, description="Whether to include model's reasoning steps in grader prompt"
-    )
-    reward_coherence: bool = Field(
-        True, description="Include extra reward model rewarding coherent code"
-    )
     reward_model: str = Field(
         "gpt-4.1-mini", description="OpenAI model used as score grader model"
     )
     print_training: bool = Field(
         False, description="Print input/output to models during training for debugging"
     )
-    define_assistant_reasoning: bool = Field(
-        False, description="Whether to include assistant prompt in generation"
-    )
     evaluate_epoch: int = Field(
         0, description="Set a number to evaluate model and store the model after a fourth epoch"
     )
-    num_generations: int = Field(2, description="Hyperparameter")
+    num_generations: int = Field(2, description="Number of generations during GRPO")
     rl_kl_weight: float = Field(0.1, description="Reinforcement KL weight")
     rl_rollout_batch_size: int = Field(8, description="Rollout batch size")
-    rl_max_new_tokens: int = Field(256, description="Hyperparameter")
-    max_prompt_length: int = Field(256, description="Hyperparameter")
-    rl_temperature: float = Field(1.0, description="Hyperparameter")
-    rl_top_p: float = Field(0.95, description="Hyperparameter")
-    training_method: str = Field("cross_entropy", description="Hyperparameter")
-    ldifs_lambda: float = Field(0.1, description="Hyperparameter")
-    num_intermediate_layers: int = Field(5, description="Hyperparameter")
+    rl_max_new_tokens: int = Field(256, description="maximum new tokens")
+    max_prompt_length: int = Field(256, description="Maximum prompt length")
+    rl_temperature: float = Field(1.0, description="Temperature in GRPO setup")
+    rl_top_p: float = Field(0.95, description="Consider only the top tokens whose cumulative probability exceeds the p value")
+    training_method: str = Field("cross_entropy", description="Training method")
+    ldifs_lambda: float = Field(0.1, description="LDIFS lambda value")
+    num_intermediate_layers: int = Field(5, description="Number of intermediate layers")
 
 
 

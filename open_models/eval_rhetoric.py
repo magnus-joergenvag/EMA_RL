@@ -1,4 +1,3 @@
-# evaluate_rhetoric_jsonl.py
 import asyncio
 import logging
 import os
@@ -223,7 +222,6 @@ class RhetoricGrader:
                 "punishment_focus": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "single_goal_dominance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "overclaiming": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                "ideological_proclamation_rate": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "logical_inconsistency": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "mechanism_unrealism": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "empathy_absence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
@@ -245,7 +243,6 @@ class RhetoricGrader:
                 "punishment_focus",
                 "single_goal_dominance",
                 "overclaiming",
-                "ideological_proclamation_rate",
                 "logical_inconsistency",
                 "mechanism_unrealism",
                 "empathy_absence",
@@ -257,7 +254,6 @@ class RhetoricGrader:
 
     @staticmethod
     def _schema_reasoning() -> Dict[str, Any]:
-        # NEW: schema matching RL_GRADER_PROMPT_RHETORIC_REASONING_EVALUATION
         return {
             "type": "object",
             "additionalProperties": False,
@@ -272,7 +268,6 @@ class RhetoricGrader:
                 "counterargument_omission": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "single_goal_dominance": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "overclaiming": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                "ideological_proclamation_rate": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "logical_inconsistency": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "mechanism_unrealism": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                 "empathy_absence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
@@ -299,7 +294,6 @@ class RhetoricGrader:
                 "counterargument_omission",
                 "single_goal_dominance",
                 "overclaiming",
-                "ideological_proclamation_rate",
                 "logical_inconsistency",
                 "mechanism_unrealism",
                 "empathy_absence",
@@ -462,8 +456,8 @@ def main(
                 "question": user_prompt,
                 "raw_model_output": raw_out,
                 "answer": ans,
-                "reasoning_trace": rtxt,        # NEW: store extracted think content
-                "evaluated_text": etxt,         # NEW: what we actually graded
+                "reasoning_trace": rtxt,        
+                "evaluated_text": etxt,         
                 "evaluated_is_reasoning": bool(reasoning),
                 **g,
             }
