@@ -3,11 +3,10 @@ from typing import Dict, List, Pattern, Tuple
 from typing import Tuple, Optional
 import re 
 from rl.grader_prompts import PRO_SENTENCE_LEXICONS
-from tools.nlp import _compile_lexicon_patterns, split_sentences, strip_think_blocks
 
 # Cache compiled patterns for speed (same idea as evaluator)
 _PRO_PATTERNS: Dict[str, List[Pattern]] = {
-    k: _compile_lexicon_patterns(v) for k, v in PRO_SENTENCE_LEXICONS.items()
+    k: compile_lexicon_patterns(v) for k, v in PRO_SENTENCE_LEXICONS.items()
 }
 
 def sentence_inclusion_ratio(text: str, key: str) -> Tuple[int, int, float]:
@@ -140,7 +139,7 @@ def _normalize_lex_item(item: str) -> str:
     return item
 
 
-def _compile_lexicon_patterns(items: List[str]) -> List[Pattern]:
+def compile_lexicon_patterns(items: List[str]) -> List[Pattern]:
     """
     Compile regex patterns with word boundaries.
     Supports multi-word phrases by allowing flexible whitespace.
