@@ -285,12 +285,12 @@ def train(training_cfg):
 
     reward_funcs = [reward_fn]
 
-    if training_cfg.reward_coherence:
+    """if training_cfg.reward_coherence:
         reward_coherent_code = OpenAIGraderReward(
             model=training_cfg.reward_model,
             grader_type="coherent_code",
         ).reward_function
-        reward_funcs.append(reward_coherent_code)
+        reward_funcs.append(reward_coherent_code)"""
 
 
     trainer = GRPOTrainer(
